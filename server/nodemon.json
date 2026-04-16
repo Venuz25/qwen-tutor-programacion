@@ -1,0 +1,10 @@
+{
+  "ignore": [
+    "temp/*",
+    "*.py",
+    "*.js",
+    "node_modules"
+  ],
+  "watch": ["index.js", "routes/", "src/"],
+  "ext": "js,json"
+}

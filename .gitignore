@@ -1,5 +1,8 @@
 claves.txt
 .vscode/
 
+/node_modules/
 /server/node_modules/
 /client/node_modules/
+
+/ia-model/01_generate_dataset.py

@@ -4,7 +4,9 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "server": "npm run dev --prefix server",
+    "client": "npm run dev --prefix client",
+    "dev": "concurrently \"npm run server\" \"npm run client\""
   },
   "repository": {
     "type": "git",
@@ -17,5 +19,8 @@
   "bugs": {
     "url": "https://github.com/Venuz25/qwen-tutor-programacion/issues"
   },
-  "homepage": "https://github.com/Venuz25/qwen-tutor-programacion#readme"
+  "homepage": "https://github.com/Venuz25/qwen-tutor-programacion#readme",
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  }
 }
