@@ -13,7 +13,7 @@ class Message(BaseModel):
 class SocraticDialogue(BaseModel):
     messages: list[Message]
 
-client = genai.Client(api_key="AIzaSyCvwWWqaMzK7QSgs39pdxha81JK9iK1fLg")
+client = genai.Client(api_key="Api-Key *******")
 MODEL_ID = 'gemini-2.5-flash'
 
 INPUT_FILE = "ia-model/datasets/datasets-filtrados/450_samples.jsonl"

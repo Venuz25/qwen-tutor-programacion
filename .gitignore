@@ -1,2 +1,5 @@
 claves.txt
 .vscode/
+
+/server/node_modules/
+/client/node_modules/
