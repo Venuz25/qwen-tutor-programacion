@@ -1,0 +1,21 @@
+{
+  "name": "qwen-tutor-programacion",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Venuz25/qwen-tutor-programacion.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/Venuz25/qwen-tutor-programacion/issues"
+  },
+  "homepage": "https://github.com/Venuz25/qwen-tutor-programacion#readme"
+}
