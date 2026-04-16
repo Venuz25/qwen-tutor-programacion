@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react'; // Agregamos useEffect aquí
 import { PanelRightClose, PanelRightOpen } from 'lucide-react';
 import Sidebar from './components/Sidebar';
 import ChatSection from './components/ChatSection';
@@ -6,19 +6,47 @@ import CodeCompiler from './components/CodeCompiler';
 
 function App() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [isCompilerOpen, setIsCompilerOpen] = useState(true);
-  const [chats, setChats] = useState([{ id: 1, title: 'Ejercicios de Bucles' }]);
-  const [activeChat, setActiveChat] = useState(1);
+  const [isCompilerOpen, setIsCompilerOpen] = useState(false);
 
-  const createChat = () => {
-    const newChat = { id: Date.now(), title: `Nuevo Chat ${chats.length + 1}` };
-    setChats([newChat, ...chats]);
-    setActiveChat(newChat.id);
+  const [chats, setChats] = useState([]);
+  const [activeChatId, setActiveChatId] = useState(null);
+
+  // Cargar lista de chats desde el backend
+  useEffect(() => {
+    const fetchChats = async () => {
+      try {
+        const res = await fetch('http://localhost:5000/api/chats');
+        const data = await res.json();
+        setChats(data);
+      } catch (error) {
+        console.error("Error al conectar con MongoDB:", error);
+      }
+    };
+    fetchChats();
+  }, []);
+
+  // FUNCIONES DE MANEJO DE CHATS
+  const createNewChat = async () => {
+    try {
+      const res = await fetch('http://localhost:5000/api/chats', { method: 'POST' });
+      const newChat = await res.json();
+      setChats([newChat, ...chats]);
+      setActiveChatId(newChat._id);
+
+      return newChat;
+    } catch (error) {
+      console.error("No se pudo crear el chat:", error);
+    }
   };
 
-  const deleteChat = (id) => {
-    setChats(chats.filter(c => c.id !== id));
-    if (activeChat === id) setActiveChat(null);
+  const deleteChat = async (id) => {
+    try {
+      await fetch(`http://localhost:5000/api/chats/${id}`, { method: 'DELETE' });
+      setChats(chats.filter(c => c._id !== id));
+      if (activeChatId === id) setActiveChatId(null);
+    } catch (error) {
+      console.error("Error al eliminar:", error);
+    }
   };
 
   return (
@@ -27,18 +55,18 @@ function App() {
         isOpen={isSidebarOpen} 
         setIsOpen={setIsSidebarOpen}
         chats={chats}
-        activeChat={activeChat}
-        onSelect={setActiveChat}
-        onCreate={createChat}
+        activeChat={activeChatId}
+        onSelect={setActiveChatId}
+        onCreate={createNewChat}
         onDelete={deleteChat}
       />
       
       <main className="flex flex-1 overflow-hidden relative">
         <div className="flex-1">
-          <ChatSection />
+          <ChatSection activeChatId={activeChatId} onCreate={createNewChat} />
         </div>
 
-        {/* Botón flotante para abrir el compilador cuando está cerrado */}
+        {/* Botón flotante para abrir el compilador */}
         {!isCompilerOpen && (
           <button 
             onClick={() => setIsCompilerOpen(true)}
@@ -49,10 +77,10 @@ function App() {
           </button>
         )}
 
-        {/* Sección del Compilador con transición */}
+        {/* Sección del Compilador */}
         <div className={`${
-          isCompilerOpen ? 'w-[45%]' : 'w-0'
-        } transition-all duration-300 overflow-hidden lg:block`}>
+          isCompilerOpen ? 'w-[35%]' : 'w-0'
+        } transition-all duration-300 overflow-hidden`}>
           <CodeCompiler 
             onClose={() => setIsCompilerOpen(false)} 
           />

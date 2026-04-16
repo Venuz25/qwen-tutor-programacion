@@ -6,7 +6,6 @@
   "scripts": {
     "start": "node index.js",
     "dev": "nodemon index.js"
-    
   },
   "keywords": [],
   "author": "",
@@ -17,7 +16,8 @@
     "child_process": "^1.0.2",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
-    "express": "^5.2.1"
+    "express": "^5.2.1",
+    "mongoose": "^9.4.1"
   },
   "devDependencies": {
     "nodemon": "^3.1.14"

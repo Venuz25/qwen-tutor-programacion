@@ -23,10 +23,10 @@ const Sidebar = ({ isOpen, setIsOpen, chats, activeChat, onSelect, onCreate, onD
       <div className="flex-1 overflow-y-auto mt-4 px-3 space-y-1">
         {chats.map((chat) => (
           <div 
-            key={chat.id}
-            onClick={() => onSelect(chat.id)}
+            key={chat._id}
+            onClick={() => onSelect(chat._id)}
             className={`flex items-center justify-between p-2 rounded-lg cursor-pointer group transition-all ${
-              activeChat === chat.id ? 'bg-slate-800 text-white' : 'text-slate-400 hover:bg-slate-900'
+              activeChat === chat._id ? 'bg-slate-800 text-white' : 'text-slate-400 hover:bg-slate-900'
             }`}
           >
             <div className="flex items-center gap-2 overflow-hidden">
@@ -34,7 +34,7 @@ const Sidebar = ({ isOpen, setIsOpen, chats, activeChat, onSelect, onCreate, onD
             </div>
             {isOpen && (
               <button 
-                onClick={(e) => { e.stopPropagation(); onDelete(chat.id); }}
+                onClick={(e) => { e.stopPropagation(); onDelete(chat._id); }}
                 className="opacity-0 group-hover:opacity-100 p-1 hover:text-red-400 transition-opacity"
               >
                 <Trash2 size={14} />

@@ -9,6 +9,7 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// ----- Comandos para ejecutar código -----
 const tempDir = path.join(__dirname, 'temp');
 if (!fs.existsSync(tempDir)) {
     fs.mkdirSync(tempDir);
@@ -47,6 +48,7 @@ const configs = {
     }
 };
 
+// Ruta para ejecutar código
 app.post('/api/execute', (req, res) => {
     const { content, language } = req.body;
     const config = configs[language];
@@ -69,6 +71,77 @@ app.post('/api/execute', (req, res) => {
 
         res.json({ run: { output: stdout || stderr || "Ejecutado con éxito." } });
     });
+});
+
+// ----- Conexión a MongoDB -----
+const mongoose = require('mongoose');
+const Chat = require('./models/Chat');
+
+mongoose.connect('mongodb://127.0.0.1:27017/qwen-tutor') 
+    .then(() => console.log("🍃 Conectado a MongoDB en el puerto correcto"))
+    .catch(err => console.error("❌ Error de conexión:", err.message));
+
+// --- RUTAS PARA CHATS ---
+// Obtener todos los chats (para el Sidebar)
+app.get('/api/chats', async (req, res) => {
+    const chats = await Chat.find().select('title createdAt').sort({ createdAt: -1 });
+    res.json(chats);
+});
+
+// Crear un nuevo chat
+app.post('/api/chats', async (req, res) => {
+    try {
+        const newChat = new Chat({ 
+            title: "Nuevo Chat",
+            messages: [
+                { 
+                    role: 'assistant', 
+                    content: '¡Hola! Soy tu tutor de programación. ¿En qué código estás trabajando hoy? Te ayudare para que puedas resolverlo.' 
+                }
+            ] 
+        });
+        await newChat.save();
+        res.json(newChat);
+    } catch (error) {
+        res.status(500).json({ error: "Error al crear chat" });
+    }
+});
+
+// Obtener un chat específico
+app.get('/api/chats/:id', async (req, res) => {
+    const chat = await Chat.findById(req.params.id);
+    res.json(chat);
+});
+
+// Guardar un nuevo mensaje en un chat
+app.post('/api/chats/:id/messages', async (req, res) => {
+    const { role, content } = req.body;
+    const chat = await Chat.findById(req.params.id);
+    chat.messages.push({ role, content });
+    await chat.save();
+    res.json(chat);
+});
+
+// Eliminar un chat
+app.delete('/api/chats/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        
+        if (!mongoose.Types.ObjectId.isValid(id)) {
+            return res.status(400).json({ error: "ID de chat no válido" });
+        }
+
+        const deletedChat = await Chat.findByIdAndDelete(id);
+        
+        if (!deletedChat) {
+            return res.status(404).json({ error: "Chat no encontrado" });
+        }
+
+        res.json({ message: "Chat eliminado con éxito" });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: "Error interno al eliminar" });
+    }
 });
 
 const PORT = 5000;

@@ -5,4 +5,4 @@ claves.txt
 /server/node_modules/
 /client/node_modules/
 
-/ia-model/01_generate_dataset.py
+ia-model/01_generate_dataset.py
