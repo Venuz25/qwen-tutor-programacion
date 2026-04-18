@@ -24,9 +24,10 @@ KEYS = claves.split(",")
 
 PETICIONES_POR_LLAVER = 10
 MODEL_ID = 'gemini-2.5-flash'
+NO_SAMPLES = 191
 
-INPUT_FILE = "ia-model/datasets/datasets-filtrados/450_samples.jsonl"
-OUTPUT_FILE = "ia-model/datasets/dataset_v1.jsonl"
+INPUT_FILE = f"ia-model/datasets/datasets-filtrados/{NO_SAMPLES}_samples.jsonl"
+OUTPUT_FILE = f"ia-model/datasets/datasets-generados/dataset_{NO_SAMPLES}samples.jsonl"
 
 def generar_dataset():
     if not os.path.exists(INPUT_FILE):
@@ -47,6 +48,7 @@ def generar_dataset():
         6. Cada intervención del tutor debe terminar con una pregunta guía, un mini-reto o una indicación concreta que obligue al alumno a intentar, corregir o justificar su siguiente paso.
 
         Usa formato Markdown para el código dentro de las respuestas.
+        No exedas los 750 tokens en total para toda la conversación. Si el problema es muy complejo, enfócate en la primera parte o en un aspecto específico para mantener la brevedad y claridad.
     """
 
     prompts_totales = []
