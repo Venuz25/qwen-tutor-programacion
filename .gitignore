@@ -1,10 +1,11 @@
-claves.txt
+.env
+
 .vscode/
+__pycache__/
+*.pyc
 
 /node_modules/
 /server/node_modules/
 /client/node_modules/
 
-.env
-__pycache__/
-*.pyc
+/ia-model/models/*

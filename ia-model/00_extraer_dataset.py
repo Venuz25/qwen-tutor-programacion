@@ -4,7 +4,7 @@ import random
 from datasets import load_dataset
 
 # ---------------- CONFIGURACIÓN ----------------
-CANTIDAD_EJEMPLOS = 191 # Cuántos ejemplos aleatorios quieres extraer en total
+CANTIDAD_EJEMPLOS = 21 # Cuántos ejemplos aleatorios quieres extraer en total
 MAX_CHARS_PROMPT = 1000 # Ignorar problemas muy largos para no gastar demasiados tokens
 
 # Ruta de salida

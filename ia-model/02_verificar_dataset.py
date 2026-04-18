@@ -4,9 +4,7 @@ import os
 INPUT_FILE = "ia-model/datasets/datasets-generados/dataset_450samples.jsonl"
 OUTPUT_FILE = "ia-model/datasets/dataset_450samples_v1.jsonl"
 
-# Límite estricto para proteger los 4GB de VRAM 
-# (Aprox 750 tokens)
-MAX_CARACTERES_TOTALES = 3000 
+MAX_CARACTERES_TOTALES = 4000
 
 def verificar_y_limpiar_dataset():
     if not os.path.exists(INPUT_FILE):
@@ -86,11 +84,11 @@ def verificar_y_limpiar_dataset():
                 estadisticas["json_corrupto"] += 1
 
     print("=" * 50)
-    print("📊 REPORTE DE SANITIZACIÓN DE DATASET")
+    print("REPORTE DE SANITIZACIÓN DE DATASET")
     print("=" * 50)
     print(f"Total de registros evaluados : {estadisticas['total_procesados']}")
-    print(f"✅ Registros VÁLIDOS salvados : {estadisticas['validos']}")
-    print(f"❌ Registros INVÁLIDOS borrados: {estadisticas['invalidos']}")
+    print(f"✓ Registros VÁLIDOS (salvados) : {estadisticas['validos']}")
+    print(f"× Registros INVÁLIDOS (borrados): {estadisticas['invalidos']}")
     print("-" * 50)
     if estadisticas['invalidos'] > 0:
         print("Causas de descarte (Análisis Forense):")
@@ -101,7 +99,7 @@ def verificar_y_limpiar_dataset():
         print(f"  - Texto de respuesta vacío         : {estadisticas['contenido_vacio']}")
     
     print("-" * 50)
-    print(f"🚀 ¡Dataset impecable y seguro para 4GB VRAM guardado en:")
+    print(f"[INFO] Dataset impecable y seguro para 4GB VRAM guardado en:")
     print(f"   -> {OUTPUT_FILE}")
 
 if __name__ == "__main__":
