@@ -24,7 +24,7 @@ KEYS = claves.split(",")
 
 PETICIONES_POR_LLAVER = 10
 MODEL_ID = 'gemini-2.5-flash'
-NO_SAMPLES = 21
+NO_SAMPLES = 450
 
 INPUT_FILE = f"ia-model/datasets/datasets-filtrados/{NO_SAMPLES}_samples.jsonl"
 OUTPUT_FILE = f"ia-model/datasets/datasets-generados/dataset_{NO_SAMPLES}samples.jsonl"

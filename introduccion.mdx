@@ -1,0 +1,23 @@
+---
+title: Introducción al Tutor Socrático
+description: 'Documentación oficial de la arquitectura y el entrenamiento del modelo'
+---
+
+## Bienvenido
+
+Esta documentación detalla cómo se construyó y entrenó el asistente basado en Qwen 0.5B utilizando técnicas de fine-tuning (QLoRA) para adoptar una personalidad socrática.
+
+### Características Principales
+
+* **Aprendizaje Activo:** No da la respuesta directamente, guía al usuario.
+* **Optimizado para Hardware Modesto:** Entrenado para funcionar en GPUs de 4GB de VRAM.
+* **Dataset Curado:** Basado en conversaciones multiturno de alta calidad.
+
+<CardGroup cols={2}>
+  <Card title="Ver el Dataset" icon="database" href="/dataset">
+    Aprende cómo estructuramos los datos JSONL.
+  </Card>
+  <Card title="Script de Entrenamiento" icon="code" href="/entrenamiento">
+    Revisa la configuración de SFTTrainer y Peft.
+  </Card>
+</CardGroup>
