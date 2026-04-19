@@ -30,7 +30,7 @@ Sigue estos pasos en el orden exacto para configurar el motor de Inteligencia Ar
 
 1. Clonar el repositorio
 ```bash
-git clone [https://github.com/Venuz25/qwen-tutor-programacion](https://github.com/Venuz25/qwen-tutor-programacion)
+git clone https://github.com/Venuz25/qwen-tutor-programacion
 cd qwen-tutor-programacion
 ```
 
