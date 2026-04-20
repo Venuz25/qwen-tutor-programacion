@@ -1,4 +1,5 @@
 const express = require('express');
+const axios = require('axios');
 const cors = require('cors');
 const { exec } = require('child_process'); 
 const fs = require('fs');
@@ -82,7 +83,7 @@ mongoose.connect('mongodb://127.0.0.1:27017/qwen-tutor')
     .catch(err => console.error("❌ Error de conexión:", err.message));
 
 // --- RUTAS PARA CHATS ---
-// Obtener todos los chats (para el Sidebar)
+// Obtener todos los chats
 app.get('/api/chats', async (req, res) => {
     const chats = await Chat.find().select('title createdAt').sort({ createdAt: -1 });
     res.json(chats);
@@ -113,33 +114,57 @@ app.get('/api/chats/:id', async (req, res) => {
     res.json(chat);
 });
 
-// Guardar un nuevo mensaje en un chat
+// Maneja usuario e IA
 app.post('/api/chats/:id/messages', async (req, res) => {
-    const { role, content } = req.body;
-    const chat = await Chat.findById(req.params.id);
-    chat.messages.push({ role, content });
-    await chat.save();
-    res.json(chat);
+    try {
+        const { role, content } = req.body;
+        const chatId = req.params.id;
+
+        const chat = await Chat.findById(chatId);
+        if (!chat) return res.status(404).json({ error: "Chat no encontrado" });
+
+        // A. Guardar mensaje del usuario
+        chat.messages.push({ role, content });
+        await chat.save();
+
+        console.log(`Solicitando respuesta al modelo...`);
+
+        // B. Llamar a SHUKAKU en Python (Puerto 8000)
+        const iaResponse = await axios.post('http://127.0.0.1:8000/generate', {
+            messages: chat.messages.map(m => ({ role: m.role, content: m.content }))
+        });
+
+        const botMessage = { 
+            role: 'assistant', 
+            content: iaResponse.data.response 
+        };
+
+        // C. Guardar respuesta de la IA
+        chat.messages.push(botMessage);
+        await chat.save();
+
+        // D. Responder al frontend con el mensaje del Bot
+        res.json(botMessage); 
+
+    } catch (error) {
+        console.error("Error conectando con la IA:", error.message);
+        res.status(500).json({ 
+            role: 'assistant', 
+            content: "Lo siento, tuve un problema de conexión. ¿Podrías repetir tu pregunta?" 
+        });
+    }
 });
 
 // Eliminar un chat
 app.delete('/api/chats/:id', async (req, res) => {
     try {
         const { id } = req.params;
-        
         if (!mongoose.Types.ObjectId.isValid(id)) {
             return res.status(400).json({ error: "ID de chat no válido" });
         }
-
-        const deletedChat = await Chat.findByIdAndDelete(id);
-        
-        if (!deletedChat) {
-            return res.status(404).json({ error: "Chat no encontrado" });
-        }
-
+        await Chat.findByIdAndDelete(id);
         res.json({ message: "Chat eliminado con éxito" });
     } catch (error) {
-        console.error(error);
         res.status(500).json({ error: "Error interno al eliminar" });
     }
 });

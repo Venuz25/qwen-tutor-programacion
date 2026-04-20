@@ -1,9 +1,12 @@
+import os
 import torch
+from dotenv import load_dotenv
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from peft import PeftModel
 
-NAME = "SHUKAKU"
-VERSION = "1.0"
+load_dotenv()
+NAME = os.getenv("MODEL_NAME")
+VERSION = os.getenv("MODEL_VERSION")
 
 # Rutas
 BASE_MODEL = "Qwen/Qwen2.5-0.5B-Instruct"

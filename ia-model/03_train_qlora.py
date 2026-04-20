@@ -1,12 +1,14 @@
 import torch
 import os
+from dotenv import load_dotenv
 from datasets import load_dataset
 from peft import LoraConfig, get_peft_model, prepare_model_for_kbit_training
 from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
 from trl import SFTTrainer, SFTConfig
 
-NAME = "SHUKAKU" 
-VERSION = "1.0"
+load_dotenv()
+NAME = os.getenv("MODEL_NAME")
+VERSION = os.getenv("MODEL_VERSION")
 
 # CONFIGURACIÓN DE RUTAS Y MODELO
 DATASET_FILE = "ia-model/datasets/dataset_450samples_v1.jsonl"
