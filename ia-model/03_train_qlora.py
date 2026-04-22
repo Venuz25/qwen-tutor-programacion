@@ -10,22 +10,25 @@ load_dotenv()
 NAME = os.getenv("MODEL_NAME")
 VERSION = os.getenv("MODEL_VERSION")
 
+# ==========================================
 # CONFIGURACIÓN DE RUTAS Y MODELO
-DATASET_FILE = "ia-model/datasets/dataset_450samples_v1.jsonl"
+# ==========================================
+# [IMPORTANTE] Asegúrate de apuntar a tu dataset V2 (el que tiene los 750+ ejemplos balanceados)
+DATASET_FILE = "ia-model/datasets/datasets-generados/dataset_v2.jsonl" 
 OUTPUT_DIR = f"ia-model/models/{NAME}{VERSION}/qwen-checkpoints"
 FINAL_MODEL_DIR = f"ia-model/models/{NAME}{VERSION}/qwen-tutor"
 
-# Qwen2.5-0.5B-Instruct para 4GB VRAM
-MODEL_ID = "Qwen/Qwen2.5-0.5B-Instruct" 
+# [NUEVO] Subimos la inteligencia al modelo "Ricitos de Oro"
+MODEL_ID = "Qwen/Qwen2.5-1.5B-Instruct" 
 
 def entrenar_modelo():
     if not os.path.exists(DATASET_FILE):
-        print(f"[ERROR] No se encontró el dataset limpio en {DATASET_FILE}")
+        print(f"[ERROR] No se encontró el dataset en {DATASET_FILE}")
         return
 
-    print("[INFO] Iniciando pipeline de Fine-Tuning (QLoRA)...")
+    print(f"[INFO] Iniciando pipeline de Fine-Tuning para {MODEL_ID}...")
 
-    # 1. CUANTIZACIÓN
+    # 1. CUANTIZACIÓN (El Compresor)
     print("[TRACE] Configurando cuantización a 4-bits (NF4)...")
     bnb_config = BitsAndBytesConfig(
         load_in_4bit=True,
@@ -35,10 +38,12 @@ def entrenar_modelo():
     )
 
     # 2. CARGA DE TOKENIZER Y MODELO
-    print(f"[TRACE] Descargando/Cargando modelo base {MODEL_ID} en memoria...")
+    print("[TRACE] Cargando modelo base en memoria...")
     tokenizer = AutoTokenizer.from_pretrained(MODEL_ID)
     tokenizer.pad_token = tokenizer.eos_token
-    tokenizer.model_max_length = 1024
+    
+    # [ANTI-OOM CRÍTICO] Reducimos la memoria de lectura a 512 tokens para proteger tus 4GB VRAM
+    tokenizer.model_max_length = 512 
 
     model = AutoModelForCausalLM.from_pretrained(
         MODEL_ID,
@@ -50,10 +55,10 @@ def entrenar_modelo():
     # 3. PREPARACIÓN PARA ENTRENAMIENTO EFICIENTE
     model = prepare_model_for_kbit_training(model, use_gradient_checkpointing=True)
 
-    # 4. CONFIGURACIÓN DEL ADAPTADOR LoRA
+    # 4. CONFIGURACIÓN DEL ADAPTADOR LoRA (El Cerebro Socrático)
     lora_config = LoraConfig(
-        r=16,
-        lora_alpha=32,
+        r=8,              # [ANTI-OOM CRÍTICO] Bajamos el rango a 8 (antes 16) para ahorrar VRAM
+        lora_alpha=16,    # Ajuste proporcional al rango
         target_modules=["q_proj", "k_proj", "v_proj", "o_proj"],
         lora_dropout=0.05,
         bias="none",
@@ -61,15 +66,12 @@ def entrenar_modelo():
     )
     model = get_peft_model(model, lora_config)
 
-    # ESCANEANDOLA EN BUSCA DE VARIABLES FANTASMA (BUG DE CUANTIZACIÓN)
-    print("[TRACE] Escaneando el modelo en busca de variables fantasma...")
-    
-    # 1. Limpiar parámetros (Pesos neuronales)
+    # ESCANEANDO EN BUSCA DE VARIABLES FANTASMA (BUG DE CUANTIZACIÓN)
+    print("[TRACE] Limpiando tensores bfloat16 para evitar errores de hardware...")
     for name, param in model.named_parameters():
         if param.dtype == torch.bfloat16:
             param.data = param.data.to(torch.float16)
             
-    # 2. Limpiar Buffers (Variables ocultas como los embeddings rotatorios)
     for name, buffer in model.named_buffers():
         if buffer.dtype == torch.bfloat16:
             buffer.data = buffer.data.to(torch.float16)
@@ -80,9 +82,11 @@ def entrenar_modelo():
     print("[TRACE] Cargando dataset en memoria...")
     dataset = load_dataset("json", data_files=DATASET_FILE, split="train")
 
-    # 6. HIPERPARÁMETROS ANTI-OOM
+    # 6. HIPERPARÁMETROS (Blindaje Extremo Anti-OOM)
     training_args = SFTConfig(
         output_dir=OUTPUT_DIR,
+        dataset_text_field="text",
+        max_seq_length=512,        # [ANTI-OOM CRÍTICO] Forzamos secuencias cortas
         per_device_train_batch_size=1,      
         gradient_accumulation_steps=4,      
         learning_rate=2e-4,
@@ -90,7 +94,7 @@ def entrenar_modelo():
         logging_steps=5,
         report_to="tensorboard",
         optim="paged_adamw_8bit",           
-        fp16=False,
+        fp16=True,                 # Activamos FP16 puro en lugar de desactivarlo
         bf16=False,
         gradient_checkpointing=True,
         save_strategy="epoch",              
@@ -108,7 +112,7 @@ def entrenar_modelo():
     )
 
     # 8. EJECUCIÓN
-    print("\n[START] Iniciando entrenamiento...\n")
+    print("\n[START] Iniciando entrenamiento. Esto tomará tiempo, ve por un café...\n")
     trainer.train()
 
     # Guardado del modelo final
@@ -117,7 +121,7 @@ def entrenar_modelo():
     trainer.model.save_pretrained(FINAL_MODEL_DIR)
     tokenizer.save_pretrained(FINAL_MODEL_DIR)
     
-    print(f"\n[SUCCESS] Tu tutor listo. Los pesos finales están en: {FINAL_MODEL_DIR}")
+    print(f"\n[SUCCESS] Tu tutor Socrático 1.5B está listo. Los pesos finales están en: {FINAL_MODEL_DIR}")
 
 if __name__ == "__main__":
     entrenar_modelo()

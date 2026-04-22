@@ -39,7 +39,7 @@
 {"prompt": "Construct a web scraper in Python using the Scrapy library which fetches information from a web page.\nCódigo/Contexto: Not applicable"}
 {"prompt": "Modify the following program to improve its efficiency\nCódigo/Contexto: def sum_to_n(n):\n    total = 0\n    for i in range(1, n+1):\n        total += i\n    return total"}
 {"prompt": "Given a list of integers, design a function that will return the sum of all the even numbers in the list.\nCódigo/Contexto: input_list = [1,2,3,4,5,6]"}
-{"prompt": "Given a React Native app with two screens, Login and Home, implement navigation to move between them.\nCódigo/Contexto: Not applicable"}
+{"prompt": "Given a React Native app with two screens, Login and Home, implement navigation to move between them.\nCódigo/Context<o: Not applicable"}
 {"prompt": "Develop a function in C to find the power of a given base to an exponent. The function should handle error cases where the base or exponent is negative, and also handle the case where the exponent is a floating-point number. If the base or exponent is negative, or if the exponent is greater than 100, the function should return -1. Additionally, the function should round the result to the nearest integer if the exponent is a floating-point number."}
 {"prompt": "Create a basic Node.js application with an Express server. The application should have the following routes: \"/\" (for the homepage), \"/users\" (for a list of users), and \"/posts\" (for a list of posts).\nCódigo/Contexto: Not applicable"}
 {"prompt": "Write a function in Java that takes an integer and returns an array of all the prime numbers from 2 up to the number.\nnumber = 10"}
