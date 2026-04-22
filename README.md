@@ -1,4 +1,4 @@
-# Tutor Socrático IA - Qwen 0.5B Fine-Tuned
+# Tutor Socrático IA - Qwen 1.5B Fine-Tuned
 
 ![Python](https://img.shields.io/badge/Python-3.10-blue.svg)
 ![PyTorch](https://img.shields.io/badge/PyTorch-2.0+-ee4c2c.svg)
@@ -7,7 +7,7 @@
 
 Este proyecto implementa un asistente de Inteligencia Artificial especializado en enseñar programación mediante el **Método Socrático**. En lugar de dar respuestas directas, la IA guía al usuario a través de preguntas deductivas y ejemplos analógicos. 
 
-El modelo base es `Qwen2.5-0.5B-Instruct`, el cual ha sido ajustado (Fine-Tuned) utilizando la técnica **QLoRA** (Quantized Low-Rank Adaptation) para poder ser entrenado y ejecutado localmente en hardware modesto (GPUs con 4GB de VRAM).
+El modelo base es `Qwen2.5-1.5B-Instruct`, el cual ha sido ajustado (Fine-Tuned) utilizando la técnica **QLoRA** (Quantized Low-Rank Adaptation) para poder ser entrenado y ejecutado localmente en hardware modesto (GPUs con 4GB de VRAM).
 
 ---
 
