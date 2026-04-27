@@ -5,10 +5,12 @@ import { atomDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import remarkGfm from 'remark-gfm';
 import logoProgramacion from '../assets/programacion.png';
 
-const ChatSection = ({ activeChatId, onCreate }) => {
+// 1. Añadimos onChatUpdated en las props
+const ChatSection = ({ activeChatId, onCreate, onChatUpdated }) => {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [welcomeInput, setWelcomeInput] = useState('');
+  const [isThinking, setIsThinking] = useState(false); 
   const messagesEndRef = useRef(null);
 
   const scrollToBottom = () => {
@@ -17,10 +19,11 @@ const ChatSection = ({ activeChatId, onCreate }) => {
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages]);
+  }, [messages, isThinking]);
 
-  // Cargar mensajes
+  // 2. REGLA DE ORO: Si cambias de chat, deja de "pensar" y limpia la pantalla
   useEffect(() => {
+    setIsThinking(false); 
     if (activeChatId) {
       setMessages([]);
       fetch(`http://localhost:5000/api/chats/${activeChatId}`)
@@ -32,38 +35,74 @@ const ChatSection = ({ activeChatId, onCreate }) => {
     }
   }, [activeChatId]);
 
-  // 2. Función para enviar mensajes
+  // Función para enviar mensajes
   const sendMessage = async () => {
     if (!input.trim() || !activeChatId) return;
+    
+    // 3. Guardamos el ID del chat actual para comparar cuando llegue la respuesta
+    const chatEnviado = activeChatId; 
     const userMessage = { role: 'user', content: input };
+    
     setMessages(prev => [...prev, userMessage]);
     setInput('');
+    setIsThinking(true);
 
     try {
-      const response = await fetch(`http://localhost:5000/api/chats/${activeChatId}/messages`, {
+      const response = await fetch(`http://localhost:5000/api/chats/${chatEnviado}/messages`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(userMessage)
       });
       const botReply = await response.json();
-      setMessages(prev => [...prev, botReply]);
+      
+      // 4. PROTECCIÓN: Solo agregamos el mensaje si el usuario NO cambió de chat
+      if (chatEnviado === activeChatId) {
+        setMessages(prev => [...prev, botReply]);
+        
+        // Refrescamos el título del sidebar si es necesario
+        if (botReply.titulo_actualizado && onChatUpdated) {
+          onChatUpdated();
+        }
+      }
     } catch (error) {
       console.error("Error:", error);
+    } finally {
+      // 5. Solo apagamos la animación si seguimos en el mismo chat
+      if (chatEnviado === activeChatId) {
+        setIsThinking(false);
+      }
     }
   };
 
-  // Lógica de bienvenida (se queda igual)
+  // Lógica de bienvenida
   const startFirstChat = async () => {
     if (!welcomeInput.trim()) return;
     const newChat = await onCreate();    
     const userMessage = { role: 'user', content: welcomeInput };
-    await fetch(`http://localhost:5000/api/chats/${newChat._id}/messages`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(userMessage)
-    });
+    
     setMessages([...newChat.messages, userMessage]);
     setWelcomeInput('');
+    setIsThinking(true);
+
+    try {
+      const response = await fetch(`http://localhost:5000/api/chats/${newChat._id}/messages`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(userMessage)
+      });
+      const botReply = await response.json();
+      
+      // Aquí estamos forzando a que se active el chat nuevo, así que mostramos todo
+      setMessages([...newChat.messages, userMessage, botReply]);
+      
+      if (botReply.titulo_actualizado && onChatUpdated) {
+        onChatUpdated();
+      }
+    } catch (error) {
+      console.error("Error:", error);
+    } finally {
+      setIsThinking(false);
+    }
   };
 
   if (!activeChatId) {
@@ -95,9 +134,8 @@ const ChatSection = ({ activeChatId, onCreate }) => {
         {messages.map((msg, i) => (
           <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
             <div className={`max-w-[85%] p-4 rounded-2xl shadow-sm ${
-              msg.role === 'user' ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-200 border border-slate-700'
+              msg.role === 'user' ? 'bg-blue-600 text-white rounded-br-none' : 'bg-slate-800 text-slate-200 border border-slate-700 rounded-bl-none'
             }`}>
-              {/* --- RENDERIZADO DE MARKDOWN --- */}
               <ReactMarkdown
                 remarkPlugins={[remarkGfm]}
                 components={{
@@ -129,12 +167,22 @@ const ChatSection = ({ activeChatId, onCreate }) => {
                   ol: ({ children }) => <ol className="list-decimal ml-5 mb-2">{children}</ol>,
                 }}
               >
-                {/* Corregimos el formato del modelo antes de renderizar */}
                 {msg.content.replace(/```python(\w+)/g, '```python\n$1')}
               </ReactMarkdown>
             </div>
           </div>
         ))}
+        
+        {isThinking && (
+          <div className="flex justify-start">
+            <div className="bg-slate-800 text-slate-400 p-4 rounded-2xl rounded-bl-none border border-slate-700 flex items-center space-x-2 w-16 h-[52px]">
+              <div className="w-2 h-2 bg-slate-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+              <div className="w-2 h-2 bg-slate-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+              <div className="w-2 h-2 bg-slate-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+            </div>
+          </div>
+        )}
+        
         <div ref={messagesEndRef} />
       </div>
 
@@ -145,9 +193,14 @@ const ChatSection = ({ activeChatId, onCreate }) => {
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
             placeholder="Escribe tu duda..."
-            className="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white outline-none focus:border-blue-500"
+            disabled={isThinking}
+            className="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white outline-none focus:border-blue-500 disabled:opacity-50"
           />
-          <button onClick={sendMessage} className="bg-blue-600 text-white px-6 py-2 rounded-xl hover:bg-blue-500 transition-all font-medium">
+          <button 
+            onClick={sendMessage} 
+            disabled={isThinking}
+            className="bg-blue-600 text-white px-6 py-2 rounded-xl hover:bg-blue-500 transition-all font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+          >
             Enviar
           </button>
         </div>

@@ -17,36 +17,12 @@ if (!fs.existsSync(tempDir)) {
 }
 
 const configs = {
-    python: {
-        ext: 'py',
-        image: 'python:3.9-slim',
-        command: (file) => `python /app/temp/${file}`
-    },
-    javascript: {
-        ext: 'js',
-        image: 'node:18-slim',
-        command: (file) => `node /app/temp/${file}`
-    },
-    cpp: {
-        ext: 'cpp',
-        image: 'gcc:latest',
-        command: (file) => `sh -c "g++ /app/temp/${file} -o /app/temp/out && /app/temp/out"`
-    },
-    java: {
-        ext: 'java',
-        image: 'eclipse-temurin:17-jdk-jammy', 
-        command: (file) => `sh -c "javac /app/temp/${file} && java -cp /app/temp Main"`
-    },
-    php: {
-        ext: 'php',
-        image: 'php:8.2-cli', 
-        command: (file) => `php /app/temp/${file}`
-    },
-    c: {
-        ext: 'c',
-        image: 'gcc:latest',
-        command: (file) => `sh -c "gcc /app/temp/${file} -o /app/temp/out && /app/temp/out"`
-    }
+    python: { ext: 'py', image: 'python:3.9-slim', command: (file) => `python /app/temp/${file}` },
+    javascript: { ext: 'js', image: 'node:18-slim', command: (file) => `node /app/temp/${file}` },
+    cpp: { ext: 'cpp', image: 'gcc:latest', command: (file) => `sh -c "g++ /app/temp/${file} -o /app/temp/out && /app/temp/out"` },
+    java: { ext: 'java', image: 'eclipse-temurin:17-jdk-jammy', command: (file) => `sh -c "javac /app/temp/${file} && java -cp /app/temp Main"` },
+    php: { ext: 'php', image: 'php:8.2-cli', command: (file) => `php /app/temp/${file}` },
+    c: { ext: 'c', image: 'gcc:latest', command: (file) => `sh -c "gcc /app/temp/${file} -o /app/temp/out && /app/temp/out"` }
 };
 
 // Ruta para ejecutar código
@@ -123,6 +99,18 @@ app.post('/api/chats/:id/messages', async (req, res) => {
         const chat = await Chat.findById(chatId);
         if (!chat) return res.status(404).json({ error: "Chat no encontrado" });
 
+        // ==========================================
+        // LÓGICA DE AUTO-NOMBRADO
+        // ==========================================
+        let tituloActualizado = false;
+        // Si el chat solo tiene 1 mensaje (el saludo del bot) y el usuario acaba de escribir:
+        if (chat.messages.length === 1 && role === 'user') {
+            let nuevoTitulo = content.substring(0, 30); // Tomamos los primeros 30 caracteres
+            if (content.length > 30) nuevoTitulo += "..."; // Agregamos puntos suspensivos si es más largo
+            chat.title = nuevoTitulo;
+            tituloActualizado = true;
+        }
+
         // A. Guardar mensaje del usuario
         chat.messages.push({ role, content });
         await chat.save();
@@ -134,6 +122,8 @@ app.post('/api/chats/:id/messages', async (req, res) => {
             messages: chat.messages.map(m => ({ role: m.role, content: m.content }))
         });
 
+        const estadoShell = iaResponse.data.estado_detectado || "NORMAL";
+
         const botMessage = { 
             role: 'assistant', 
             content: iaResponse.data.response 
@@ -143,8 +133,12 @@ app.post('/api/chats/:id/messages', async (req, res) => {
         chat.messages.push(botMessage);
         await chat.save();
 
-        // D. Responder al frontend con el mensaje del Bot
-        res.json(botMessage); 
+        // D. Responder al frontend con el mensaje del Bot y la bandera del título
+        res.json({
+            ...botMessage,
+            estado_detectado: estadoShell,
+            titulo_actualizado: tituloActualizado // Le avisamos a React si el título cambió
+        }); 
 
     } catch (error) {
         console.error("Error conectando con la IA:", error.message);
