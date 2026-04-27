@@ -93,59 +93,61 @@ app.get('/api/chats/:id', async (req, res) => {
 // Maneja usuario e IA
 app.post('/api/chats/:id/messages', async (req, res) => {
     try {
-        const { role, content } = req.body;
+        // Recibimos los datos del compilador
+        const { role, content, compilerCode, compilerLanguage, compilerOutput } = req.body;
         const chatId = req.params.id;
 
         const chat = await Chat.findById(chatId);
         if (!chat) return res.status(404).json({ error: "Chat no encontrado" });
 
-        // ==========================================
-        // LÓGICA DE AUTO-NOMBRADO
-        // ==========================================
+        // Lógica de auto-nombrado
         let tituloActualizado = false;
-        // Si el chat solo tiene 1 mensaje (el saludo del bot) y el usuario acaba de escribir:
         if (chat.messages.length === 1 && role === 'user') {
-            let nuevoTitulo = content.substring(0, 30); // Tomamos los primeros 30 caracteres
-            if (content.length > 30) nuevoTitulo += "..."; // Agregamos puntos suspensivos si es más largo
+            let nuevoTitulo = content.substring(0, 30);
+            if (content.length > 30) nuevoTitulo += "...";
             chat.title = nuevoTitulo;
             tituloActualizado = true;
         }
 
-        // A. Guardar mensaje del usuario
+        // A. Guardar mensaje del usuario (LIMPIO, sin el código oculto)
         chat.messages.push({ role, content });
         await chat.save();
 
         console.log(`Solicitando respuesta al modelo...`);
 
-        // B. Llamar a SHUKAKU en Python (Puerto 8000)
+        // B. Armar historial para el LLM
+        let mensajesParaLLM = chat.messages.map(m => ({ role: m.role, content: m.content }));
+        
+        // [MAGIA]: Inyectamos el contexto del editor en el último mensaje SOLO para la IA
+        if (compilerCode && compilerCode.trim() !== "" && compilerCode !== "// Escribe tu código aquí...") {
+            let contexto = `\n\n[CONTEXTO INVISIBLE PARA EL TUTOR]\nEl alumno tiene actualmente este código en su editor (${compilerLanguage}):\n\`\`\`${compilerLanguage}\n${compilerCode}\n\`\`\``;
+            if (compilerOutput) {
+                contexto += `\nLa última salida/error de su consola fue:\n${compilerOutput}`;
+            }
+            mensajesParaLLM[mensajesParaLLM.length - 1].content += contexto;
+        }
+
+        // C. Llamar a Python
         const iaResponse = await axios.post('http://127.0.0.1:8000/generate', {
-            messages: chat.messages.map(m => ({ role: m.role, content: m.content }))
+            messages: mensajesParaLLM
         });
 
         const estadoShell = iaResponse.data.estado_detectado || "NORMAL";
+        const botMessage = { role: 'assistant', content: iaResponse.data.response };
 
-        const botMessage = { 
-            role: 'assistant', 
-            content: iaResponse.data.response 
-        };
-
-        // C. Guardar respuesta de la IA
+        // D. Guardar respuesta y enviar al front
         chat.messages.push(botMessage);
         await chat.save();
 
-        // D. Responder al frontend con el mensaje del Bot y la bandera del título
         res.json({
             ...botMessage,
             estado_detectado: estadoShell,
-            titulo_actualizado: tituloActualizado // Le avisamos a React si el título cambió
+            titulo_actualizado: tituloActualizado
         }); 
 
     } catch (error) {
         console.error("Error conectando con la IA:", error.message);
-        res.status(500).json({ 
-            role: 'assistant', 
-            content: "Lo siento, tuve un problema de conexión. ¿Podrías repetir tu pregunta?" 
-        });
+        res.status(500).json({ role: 'assistant', content: "Lo siento, tuve un problema de conexión." });
     }
 });
 
