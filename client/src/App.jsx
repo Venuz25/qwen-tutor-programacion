@@ -6,87 +6,96 @@ import ChatSection from './components/ChatSection';
 import CodeCompiler from './components/CodeCompiler';
 
 function App() {
+  const [isCompetitiveMode, setIsCompetitiveMode] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isCompilerOpen, setIsCompilerOpen] = useState(false);
 
   const [chats, setChats] = useState([]);
   const [activeChatId, setActiveChatId] = useState(null);
-  const [currentChat, setCurrentChat] = useState(null);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
 
-  // --- NUEVOS ESTADOS COMPARTIDOS DEL COMPILADOR ---
-  const [compilerCode, setCompilerCode] = useState('// Escribe tu código aquí...');
+  const helloWorldSnippets = {
+    python: 'print("Hola mundo")',
+    javascript: 'console.log("Hola mundo");',
+    cpp: '#include <iostream>\n\nint main() {\n  std::cout << "Hola mundo" << std::endl;\n  return 0;\n}',
+    java: 'public class Main {\n  public static void main(String[] args) {\n    System.out.println("Hola mundo");\n  }\n}',
+    php: '<?php\necho "Hola mundo\n";\n?>',
+    c: '#include <stdio.h>\n\nint main() {\n  printf("Hola mundo\n");\n  return 0;\n}',
+  };
+
   const [compilerLanguage, setCompilerLanguage] = useState('python');
-  const [compilerOutput, setCompilerOutput] = useState('');
-  const [isCompiling, setIsCompiling] = useState(false);
+  const [compilerCode, setCompilerCode] = useState(helloWorldSnippets.python);
 
-  // --- LÓGICA DE EJECUCIÓN (Movida aquí para compartirla) ---
-  const executeCode = async (codeToRun, langToRun) => {
-    setIsCompiling(true);
-    setCompilerOutput("Ejecutando...");
-    setIsCompilerOpen(true); // Abrimos panel si estaba cerrado
-
-    try {
-      const res = await axios.post('http://localhost:5000/api/execute', {
-        content: codeToRun,
-        language: langToRun
-      });
-      setCompilerOutput(res.data.run.output);
-    } catch (error) {
-      setCompilerOutput(error.response?.data?.error || "Error de ejecución.");
-    } finally {
-      setIsCompiling(false);
-    }
-  };
-
-  // Puente para el botón "Ejecutar" desde el chat
-  const handleRunFromChat = (code, lang) => {
-    let normalizedLang = lang.toLowerCase();
-    if (normalizedLang === 'js') normalizedLang = 'javascript';
-    if (normalizedLang === 'py') normalizedLang = 'python';
-    if (normalizedLang === 'c++') normalizedLang = 'cpp';
-
-    setCompilerCode(code);
-    setCompilerLanguage(normalizedLang);
-    executeCode(code, normalizedLang);
-  };
-
-  // Cargar lista de chats
   const fetchChats = async () => {
     try {
       const res = await axios.get('http://localhost:5000/api/chats');
       setChats(res.data);
-      if (res.data.length > 0 && !currentChat) setCurrentChat(res.data[0]);
-    } catch (error) {
-      console.error(error);
-    } finally {
-      setTimeout(() => setIsInitialLoading(false), 1500);
+      if (res.data.length > 0 && !activeChatId) setActiveChatId(res.data[0]._id);
+    } catch (error) { 
+      console.error("Error al obtener chats:", error); 
+    } finally { 
+      setTimeout(() => setIsInitialLoading(false), 1500); 
     }
   };
 
   useEffect(() => { fetchChats(); }, []);
 
+  // --- LÓGICA DE CREACIÓN DE CHAT ---
   const createNewChat = async () => {
     try {
+      console.log("🛠️ Solicitando creación de nuevo chat al servidor...");
       const res = await fetch('http://localhost:5000/api/chats', { method: 'POST' });
       const newChat = await res.json();
-      setChats([newChat, ...chats]);
+      
+      console.log("✅ Chat creado con éxito:", newChat._id);
+      
+      setChats(prev => [newChat, ...prev]); 
       setActiveChatId(newChat._id);
+      
       return newChat;
-    } catch (error) { console.error(error); }
+    } catch (error) { 
+      console.error("❌ Error crítico al crear el chat:", error); 
+    }
   };
 
   const deleteChat = async (id) => {
-    try {
-      await fetch(`http://localhost:5000/api/chats/${id}`, { method: 'DELETE' });
-      setChats(chats.filter(c => c._id !== id));
-      if (activeChatId === id) setActiveChatId(null);
-    } catch (error) { console.error(error); }
+    await fetch(`http://localhost:5000/api/chats/${id}`, { method: 'DELETE' });
+    setChats(prev => prev.filter(c => c._id !== id));
+    if (activeChatId === id) setActiveChatId(null);
+  };
+
+  const normalizeLanguage = (lang) => {
+    let normalized = lang?.toLowerCase() || '';
+    if (normalized === 'js') normalized = 'javascript';
+    if (normalized === 'py') normalized = 'python';
+    if (normalized === 'c++') normalized = 'cpp';
+    return normalized;
+  };
+
+  const getHelloWorldSnippet = (lang) => {
+    return helloWorldSnippets[lang] ?? '// Escribe tu código aquí...';
+  };
+
+  const handleCompilerLanguageChange = (lang) => {
+    const normalized = normalizeLanguage(lang);
+    setCompilerLanguage(normalized);
+    setCompilerCode(getHelloWorldSnippet(normalized));
+  };
+
+  const handleAutoFillCompiler = (code, lang) => {
+    let normalized = normalizeLanguage(lang);
+    setCompilerCode(code);
+    setCompilerLanguage(normalized);
+    setIsCompilerOpen(true);
+  };
+
+  const handleRunFromChat = (code, lang) => {
+    handleAutoFillCompiler(code, lang);
   };
 
   if (isInitialLoading) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-gray-900 text-white">
+      <div className="flex flex-col items-center justify-center min-h-screen bg-slate-900 text-white">
         <div className="relative w-24 h-24 mb-8">
           <div className="absolute inset-0 border-4 border-blue-500/20 rounded-full"></div>
           <div className="absolute inset-0 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
@@ -97,24 +106,23 @@ function App() {
   }
 
   return (
-    <div className="flex h-screen w-full bg-slate-900 text-slate-200 overflow-hidden font-sans">
+    <div className="flex h-screen w-full bg-slate-900 text-slate-200 overflow-hidden">
       <Sidebar 
         isOpen={isSidebarOpen} setIsOpen={setIsSidebarOpen}
-        chats={chats} activeChat={activeChatId}
+        chats={chats} setChats={setChats} activeChat={activeChatId}
         onSelect={setActiveChatId} onCreate={createNewChat} onDelete={deleteChat}
+        isCompetitiveMode={isCompetitiveMode} setIsCompetitiveMode={setIsCompetitiveMode} 
       />
       
       <main className="flex flex-1 overflow-hidden relative">
         <div className="flex-1">
           <ChatSection 
-             activeChatId={activeChatId} 
-             onCreate={createNewChat} 
-             onChatUpdated={fetchChats}
-             // Pasamos la info a ChatSection
-             compilerCode={compilerCode}
-             compilerLanguage={compilerLanguage}
-             compilerOutput={compilerOutput}
-             onRunCodeFromChat={handleRunFromChat}
+             activeChatId={activeChatId} setActiveChatId={setActiveChatId}
+             onCreate={createNewChat} onChatUpdated={fetchChats}
+             compilerCode={compilerCode} compilerLanguage={compilerLanguage} 
+             compilerOutput={"La salida se gestiona en la consola interactiva."} // Dummy text para el contexto del IA
+             onRunCodeFromChat={handleRunFromChat} onAutoFillCompiler={handleAutoFillCompiler}
+             isCompetitiveMode={isCompetitiveMode}
           />
         </div>
 
@@ -124,13 +132,11 @@ function App() {
           </button>
         )}
 
-        <div className={`${isCompilerOpen ? 'w-[35%]' : 'w-0'} transition-all duration-300 overflow-hidden`}>
+        <div className={`${isCompilerOpen ? 'w-[35%]' : 'w-0'} transition-all duration-300 overflow-hidden border-l border-slate-700`}>
           <CodeCompiler 
             onClose={() => setIsCompilerOpen(false)} 
             code={compilerCode} setCode={setCompilerCode}
-            language={compilerLanguage} setLanguage={setCompilerLanguage}
-            output={compilerOutput}
-            isCompiling={isCompiling} executeCode={executeCode}
+            language={compilerLanguage} onLanguageChange={handleCompilerLanguageChange}
           />
         </div>
       </main>

@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "docker:db": "docker start mongo-tutor",
-    "python:ia": "python ia-model/serve_model.py",
+    "python:ia": "python server/python-ia/serve_model.py",
     "server": "npm run dev --prefix server",
     "client": "npm run dev --prefix client",
     "dev": "concurrently \"npm run docker:db\" \"npm run python:ia\" \"npm run server\" \"npm run client\""
