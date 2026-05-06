@@ -120,7 +120,7 @@ function App() {
              activeChatId={activeChatId} setActiveChatId={setActiveChatId}
              onCreate={createNewChat} onChatUpdated={fetchChats}
              compilerCode={compilerCode} compilerLanguage={compilerLanguage} 
-             compilerOutput={"La salida se gestiona en la consola interactiva."} // Dummy text para el contexto del IA
+             compilerOutput={compilerOutput}
              onRunCodeFromChat={handleRunFromChat} onAutoFillCompiler={handleAutoFillCompiler}
              isCompetitiveMode={isCompetitiveMode}
           />

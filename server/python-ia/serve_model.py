@@ -1,6 +1,5 @@
 import os
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
-
 import re
 import time
 import logging
@@ -14,14 +13,12 @@ from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
 # ─────────────────────────────────────────────────────────────────────────────
 # CONFIGURACIÓN INICIAL
 # ─────────────────────────────────────────────────────────────────────────────
-
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s | %(levelname)-8s | %(message)s",
     datefmt="%Y-%m-%d %H:%M:%S"
 )
-
-app = FastAPI(title="Tutor IA - Qwen 3B (4GB VRAM)", version="2.0.0")
+app = FastAPI(title="Tutor IA - Qwen 2.5 3B", version="2.1.0")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -30,15 +27,15 @@ app.add_middleware(
 )
 
 BASE_MODEL = "Qwen/Qwen2.5-3B-Instruct"
-MAX_CTX_TOKENS = 1200
-MAX_NEW_TOKENS = 2048
+# Aumentado para manejar código + historial sin truncar agresivamente
+MAX_CTX_TOKENS = 4096
+# Reducido para evitar respuestas infinitas y OOM en 4GB VRAM
+MAX_NEW_TOKENS = 1024
 
 # ─────────────────────────────────────────────────────────────────────────────
 # CARGA DEL MODELO (Optimizado para 4 GB VRAM)
 # ─────────────────────────────────────────────────────────────────────────────
 logging.info(f"Cargando modelo {BASE_MODEL} (4-bit NF4, límite estricto 4GB)...")
-
-# Limpiar VRAM residual si hubo ejecuciones anteriores
 if torch.cuda.is_available():
     torch.cuda.empty_cache()
 
@@ -52,18 +49,16 @@ quant_config = BitsAndBytesConfig(
     bnb_4bit_use_double_quant=True
 )
 
-# Asignación explícita de memoria: 3.4GB para GPU, resto a CPU si es necesario
-max_memory = {0: "3.6GB", "cpu": "10GB"}
-
+# Límites estrictos de memoria
+max_memory = {0: "3.5GB", "cpu": "12GB"}
 model = AutoModelForCausalLM.from_pretrained(
     BASE_MODEL,
     device_map="auto",
     quantization_config=quant_config,
     torch_dtype=torch.float16,
     max_memory=max_memory,
-    offload_folder="offload" 
+    offload_folder="offload"
 )
-
 model.eval()
 torch.set_grad_enabled(False)
 logging.info("✅ Modelo cargado. VRAM usada: ~2.8-3.1 GB. Listo para inferencia.")
@@ -72,116 +67,83 @@ logging.info("✅ Modelo cargado. VRAM usada: ~2.8-3.1 GB. Listo para inferencia
 # LÓGICA DE TUTORÍA
 # ─────────────────────────────────────────────────────────────────────────────
 def analizar_intencion(mensaje: str, estado_anterior: str = "DEBUGGING") -> str:
-    """
-    Mejorado para detectar lenguaje natural más variado.
-    """
     msg = mensaje.lower()
-    
-    # Trampas: El alumno busca que le hagan el trabajo
     if re.search(r'\b(dame un programa|quiero que me des|haz el codigo|resuelveme|pasame el codigo|dame la solucion|escribe la funcion|completa el codigo|hazme la tarea|puedes hacerlo por mi)\b', msg, re.IGNORECASE):
         return "PETICION_DIRECTA"
-        
-    # Frustración: Emociones negativas o bloqueos
-    if re.search(r'\b(ya me canse|me rindo|estoy harto|imposible|no me sale|no funciona|error molesto|llevo horas|me rindo|odio esto)\b', msg, re.IGNORECASE):
+    if re.search(r'\b(ya me canse|me rindo|estoy harto|imposible|no me sale|no funciona|error molesto|llevo horas|odio esto)\b', msg, re.IGNORECASE):
         return "FRUSTRACION"
-        
-    # Competitivo: Búsqueda de retos estructurados
     if re.search(r'\b(hacker ?rank|competitiva|leetcode|problema de|reto de|ejercicio de|nivel icpc|evalua mi codigo)\b', msg, re.IGNORECASE):
         return "COMPETITIVO"
-        
-    # Cero absoluto: Petición de fundamentos
     if re.search(r'\b(desde cero|no se|no entiendo|soy nuevo|conceptos basicos|como funciona|que es|explica con peras|no tengo idea)\b', msg, re.IGNORECASE):
         return "NIVEL_CERO"
-        
     return estado_anterior
 
 def obtener_system_prompt(estado: str) -> str:
-    """
-    Prompts optimizados para Qwen 2.5 3B. 
-    Aprovechamos su mejor razonamiento lógico y adherencia a roles.
-    """
-    # Base más pedagógica para el 3B
     base = (
         "REGLAS ABSOLUTAS:\n"
         "1) Usa formato Markdown impecable.\n"
         "2) Cierra tu mensaje con UNA (1) sola pregunta socrática que lo haga pensar.\n"
         "3) NUNCA respondas tu propia pregunta.\n"
-        "4) Tu tono debe ser alentador pero firme."
+        "4) Tu tono debe ser alentador pero firme.\n"
     )
     
+    # ← CORREGIDO: Eliminados todos los espacios finales en las claves
     prompts = {
         "NIVEL_CERO": (
-            "Eres un Tutor Socrático paciente. El alumno no sabe nada sobre el tema actual. "
-            "1) Explica el concepto en un párrafo corto. "
-            "2) Usa una analogía creativa de la vida real. "
-            "3) Muestra un micro-ejemplo de sintaxis (máximo 3 líneas). "
+            "Eres un Tutor Socrático paciente. El alumno no sabe nada sobre el tema actual.\n"
+            "1) Explica el concepto en un párrafo corto.\n"
+            "2) Usa una analogía creativa de la vida real.\n"
+            "3) Muestra un micro-ejemplo de sintaxis (máximo 3 líneas).\n"
             f"{base}"
         ),
-        
         "FRUSTRACION": (
-            "Eres un Tutor Socrático muy empático. El alumno está bloqueado y frustrado. "
-            "Valida su esfuerzo brevemente ('Es normal atascarse aquí'). "
-            "Dale la estructura básica del código usando comentarios como '# Tu lógica aquí' para desatascarlo, pero NO la lógica resolutiva. "
+            "Eres un Tutor Socrático muy empático. El alumno está bloqueado y frustrado.\n"
+            "Valida su esfuerzo brevemente ('Es normal atascarse aquí').\n"
+            "Dale la estructura básica del código usando comentarios como '# Tu lógica aquí' para desatascarlo, pero NO la lógica resolutiva.\n"
             f"{base}"
         ),
-        
         "PETICION_DIRECTA": (
-            "ALERTA: El alumno intenta que hagas su tarea. "
-            "ESTRICTAMENTE PROHIBIDO dar código funcional, algoritmos completos o resolver el problema. "
-            "Actúa como un profesor universitario estricto pero guía. "
-            "Solo puedes darle un cascarón vacío: `def funcion(): pass` y preguntarle por el primer paso lógico. "
+            "ALERTA: El alumno intenta que hagas su tarea.\n"
+            "ESTRICTAMENTE PROHIBIDO dar código funcional, algoritmos completos o resolver el problema.\n"
+            "Actúa como un profesor universitario estricto pero guía.\n"
+            "Solo puedes darle un cascarón vacío: `def funcion(): pass` y preguntarle por el primer paso lógico.\n"
             f"{base}"
         ),
-        
         "COMPETITIVO": (
             "Eres un Juez experto de Programación Competitiva (estilo Codeforces).\n"
             "REGLA 1 - SI EL USUARIO PIDE UN RETO: Genera INMEDIATAMENTE un problema creativo usando EXACTAMENTE esta estructura Markdown (sin saludos ni relleno):\n\n"
             "### 🏆 [Título Creativo]\n"
             "**Dificultad:** [Fácil / Medio / Difícil]\n\n"
-            "**Descripción:**\n"
-            "[Historia de 1 o 2 párrafos con un protagonista. Define el problema matemático o algorítmico claramente. Usa variables formales como n, a_i, etc.].\n\n"
-            "**Entrada (Input):**\n"
-            "[Define el formato estrictamente. Ej: La primera línea es t (casos). Incluye límites como 1 <= n <= 10^5].\n\n"
-            "**Salida (Output):**\n"
-            "[Define qué debe imprimirse].\n\n"
+            "**Descripción:**\n[Historia de 1 o 2 párrafos con un protagonista. Define el problema matemático o algorítmico claramente. Usa variables formales como n, a_i, etc.].\n\n"
+            "**Entrada (Input):**\n[Define el formato estrictamente. Ej: La primera línea es t (casos). Incluye límites como 1 <= n <= 10^5].\n\n"
+            "**Salida (Output):**\n[Define qué debe imprimirse].\n\n"
             "**Ejemplos:**\n"
-            "> **Input:**\n"
-            "> `[Ejemplos de entrada aquí]`\n"
-            "> **Output:**\n"
-            "> `[Respuestas esperadas aquí]`\n\n"
-            "<plantilla lenguaje=\"python\">\n"
-            "def solucionar():\n"
-            "    # Tu lógica aquí\n"
-            "    pass\n\n"
-            "if __name__ == '__main__':\n"
-            "    casos = int(input())\n"
-            "    for _ in range(casos):\n"
-            "        # Lee tu entrada aquí y llama a solucionar()\n"
-            "        pass\n"
-            "</plantilla>\n\n"
-            "REGLA 2 - SI EL USUARIO ENVÍA UNA SOLUCIÓN O CÓDIGO: \n"
+            "> **Input:**\n> `[Ejemplos de entrada aquí]`\n"
+            "> **Output:**\n> `[Respuestas esperadas aquí]`\n\n"
+            "```python\ndef solucionar():\n    # Tu lógica aquí\n    pass\n\nif __name__ == '__main__':\n    casos = int(input())\n    for _ in range(casos):\n        # Lee tu entrada aquí y llama a solucionar()\n        pass\n```\n\n"
+            "REGLA 2 - SI EL USUARIO ENVÍA UNA SOLUCIÓN O CÓDIGO:\n"
             "1) Confirma su Complejidad Big O (Tiempo y Espacio).\n"
-            "2) Busca fallos críticos: Time Limit Exceeded (TLE) si es muy lento, errores de sintaxis, o casos límite.\n"
-            "3) Hazle una pregunta socrática para que lo optimice. NUNCA le des el código resuelto."
+            "2) Busca fallos críticos: Time Limit Exceeded (TLE), errores de sintaxis, o casos límite.\n"
+            "3) Hazle una pregunta socrática para que lo optimice. NUNCA le des el código resuelto.\n"
+            f"{base}"
         ),
-        
         "DEBUGGING": (
-            "Eres un experto en Debugging. Analiza el código y el error de la consola del alumno. "
-            "Señala en qué línea o variable sospechas que está el fallo, explicando el *por qué* conceptual del error (ej. 'Estás intentando sumar un string con un int'). "
+            "Eres un experto en Debugging. Analiza el código y el error de la consola del alumno.\n"
+            "Señala en qué línea o variable sospechas que está el fallo, explicando el *por qué* conceptual del error.\n"
             f"NO le des el código arreglado. {base}"
         )
     }
-    
     return prompts.get(estado, prompts["DEBUGGING"])
 
 def es_respuesta_insegura(texto: str) -> bool:
+    # ← CORREGIDO: Ahora detecta bloques triple backtick (estándar Markdown)
     bloques = re.findall(r'```(?:python|js|javascript)?\s*\n(.*?)\n```', texto, re.DOTALL | re.IGNORECASE)
     for bloque in bloques:
         lineas_ejecutables = [
             l.strip() for l in bloque.split('\n')
-            if l.strip() and not l.strip().startswith('#') and 'pass' not in l and '...' not in l
+            if l.strip() and not l.strip().startswith('#') and l.strip() != 'pass' and '...' not in l
         ]
-        if len(lineas_ejecutables) >= 3:
+        if len(lineas_ejecutables) >= 4:
             return True
     return False
 
@@ -199,7 +161,6 @@ class ChatRequest(BaseModel):
 @app.post("/generate")
 async def generate_response(request: ChatRequest):
     start_time = time.time()
-    
     try:
         ultimo_msg = request.messages[-1]["content"] if request.messages else ""
 
@@ -211,10 +172,14 @@ async def generate_response(request: ChatRequest):
         mensajes = [{"role": "system", "content": sys_prompt}] + request.messages
         text = tokenizer.apply_chat_template(mensajes, tokenize=False, add_generation_prompt=True)
         
-        # 3. Validar límite de contexto (crítico para 4GB)
+        # 3. Validar límite de contexto con fallback inteligente
         ctx_tokens = tokenizer.encode(text, add_special_tokens=False)
         if len(ctx_tokens) > MAX_CTX_TOKENS:
-            raise HTTPException(status_code=400, detail=f"Contexto excede {MAX_CTX_TOKENS} tokens. Reduce la conversación o inicia un nuevo hilo.")
+            logging.warning("⚠️ Contexto excedido. Aplicando truncamiento inteligente...")
+            # Mantener system prompt + últimos 3 mensajes para no perder el hilo
+            mensajes_truncados = [mensajes[0]] + mensajes[-3:]
+            text = tokenizer.apply_chat_template(mensajes_truncados, tokenize=False, add_generation_prompt=True)
+            ctx_tokens = tokenizer.encode(text, add_special_tokens=False)
             
         inputs = tokenizer([text], return_tensors="pt").to(model.device)
         
@@ -222,13 +187,12 @@ async def generate_response(request: ChatRequest):
         gen_ids = model.generate(
             **inputs,
             max_new_tokens=MAX_NEW_TOKENS,
-            temperature=0.35,
-            top_p=0.9,
-            repetition_penalty=1.15,
+            temperature=0.25,          # Más determinista para tutoría
+            top_p=0.85,
+            repetition_penalty=1.1,    # Reduce alucinaciones y repeticiones
             do_sample=True,
             use_cache=True,
-            pad_token_id=tokenizer.eos_token_id,
-            eos_token_id=tokenizer.eos_token_id
+            pad_token_id=tokenizer.eos_token_id
         )
         
         res = tokenizer.batch_decode(gen_ids[:, inputs.input_ids.shape[1]:], skip_special_tokens=True, clean_up_tokenization_spaces=True)[0]
@@ -238,7 +202,7 @@ async def generate_response(request: ChatRequest):
             logging.warning("⚠️ [SEGURIDAD] Fuga de código bloqueada")
             res = (
                 "🛡️ Como tu tutor, mi rol es guiarte, no resolverlo por ti.\n\n"
-                "Vamos paso a paso. ¿Qué estructura básica crees que necesitarías para empezar? "
+                "Vamos paso a paso. ¿Qué estructura básica crees que necesitarías para empezar?\n"
                 "(Ej: `def mi_funcion(): pass`)\n\n"
                 "¿Cuál es el primer dato que debes procesar?"
             )
