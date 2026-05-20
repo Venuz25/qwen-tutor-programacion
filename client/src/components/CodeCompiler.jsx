@@ -4,12 +4,12 @@ import { Play, X, Loader2, TerminalSquare } from 'lucide-react';
 import { io } from 'socket.io-client';
 
 const CodeCompiler = ({ 
-    onClose, code, setCode, language, onLanguageChange 
+    onClose, code, setCode, language, onLanguageChange, output, setOutput 
 }) => {
-  const [output, setOutput] = useState("");
+  
   const [inputValue, setInputValue] = useState("");
   const [isCompiling, setIsCompiling] = useState(false);
-  
+    
   const socketRef = useRef(null);
   const consoleEndRef = useRef(null);
   const inputRef = useRef(null);
@@ -29,7 +29,7 @@ const CodeCompiler = ({
       });
 
       socketRef.current.on('terminal_error', (data) => {
-          setOutput((prev) => prev + data); // Puedes estilizar el error de rojo si lo deseas
+          setOutput((prev) => prev + data);
       });
 
       socketRef.current.on('execution_finished', (data) => {

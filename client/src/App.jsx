@@ -25,6 +25,7 @@ function App() {
 
   const [compilerLanguage, setCompilerLanguage] = useState('python');
   const [compilerCode, setCompilerCode] = useState(helloWorldSnippets.python);
+  const [compilerOutput, setCompilerOutput] = useState('');
 
   const fetchChats = async () => {
     try {
@@ -120,7 +121,7 @@ function App() {
              activeChatId={activeChatId} setActiveChatId={setActiveChatId}
              onCreate={createNewChat} onChatUpdated={fetchChats}
              compilerCode={compilerCode} compilerLanguage={compilerLanguage} 
-             compilerOutput={compilerOutput}
+             output={compilerOutput} setOutput={setCompilerOutput}
              onRunCodeFromChat={handleRunFromChat} onAutoFillCompiler={handleAutoFillCompiler}
              isCompetitiveMode={isCompetitiveMode}
           />
@@ -137,6 +138,8 @@ function App() {
             onClose={() => setIsCompilerOpen(false)} 
             code={compilerCode} setCode={setCompilerCode}
             language={compilerLanguage} onLanguageChange={handleCompilerLanguageChange}
+            output={compilerOutput}
+            setOutput={setCompilerOutput}
           />
         </div>
       </main>

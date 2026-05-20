@@ -9,7 +9,7 @@ import { Plus, FileText, Code, X, Paperclip, StopCircle } from 'lucide-react';
 // --- 1. AÑADIMOS isCompetitiveMode a las props ---
 const ChatSection = ({ 
   activeChatId, setActiveChatId, onCreate, onChatUpdated, 
-  compilerCode, compilerLanguage, compilerOutput, onRunCodeFromChat, onAutoFillCompiler,
+  compilerCode, compilerLanguage, output: compilerOutput, onRunCodeFromChat, onAutoFillCompiler,
   isCompetitiveMode 
 }) => {
   const [messages, setMessages] = useState([]);
