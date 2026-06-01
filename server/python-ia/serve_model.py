@@ -66,16 +66,29 @@ logging.info("✅ Modelo cargado. VRAM usada: ~2.8-3.1 GB. Listo para inferencia
 # ─────────────────────────────────────────────────────────────────────────────
 # LÓGICA DE TUTORÍA
 # ─────────────────────────────────────────────────────────────────────────────
-def analizar_intencion(mensaje: str, estado_anterior: str = "DEBUGGING") -> str:
+def analizar_intencion(mensaje: str, estado_anterior: str = "GENERAL") -> str:
     msg = mensaje.lower()
+    
+    # Si el usuario solo saluda o hace plática
+    if re.search(r'\b(hola|buenas|saludos|que tal|buenos dias|ayuda)\b', msg, re.IGNORECASE) and len(msg) < 50:
+        return "GENERAL"
+        
     if re.search(r'\b(dame un programa|quiero que me des|haz el codigo|resuelveme|pasame el codigo|dame la solucion|escribe la funcion|completa el codigo|hazme la tarea|puedes hacerlo por mi)\b', msg, re.IGNORECASE):
         return "PETICION_DIRECTA"
+        
     if re.search(r'\b(ya me canse|me rindo|estoy harto|imposible|no me sale|no funciona|error molesto|llevo horas|odio esto)\b', msg, re.IGNORECASE):
         return "FRUSTRACION"
+        
     if re.search(r'\b(hacker ?rank|competitiva|leetcode|problema de|reto de|ejercicio de|nivel icpc|evalua mi codigo)\b', msg, re.IGNORECASE):
         return "COMPETITIVO"
+        
     if re.search(r'\b(desde cero|no se|no entiendo|soy nuevo|conceptos basicos|como funciona|que es|explica con peras|no tengo idea)\b', msg, re.IGNORECASE):
         return "NIVEL_CERO"
+        
+    # Detectar si pegaron código o hablan de un error explícito
+    if re.search(r'(```|def |function |class |error|exception|linea|console\.)', msg, re.IGNORECASE):
+        return "DEBUGGING"
+        
     return estado_anterior
 
 def obtener_system_prompt(estado: str) -> str:
@@ -85,10 +98,16 @@ def obtener_system_prompt(estado: str) -> str:
         "2) Cierra tu mensaje con UNA (1) sola pregunta socrática que lo haga pensar.\n"
         "3) NUNCA respondas tu propia pregunta.\n"
         "4) Tu tono debe ser alentador pero firme.\n"
+        "5) ERES ESTRICTAMENTE UN TUTOR DE PROGRAMACIÓN. Si el usuario te pregunta sobre cualquier tema ajeno a la programación o desarrollo de software (historia, cocina, deportes, traducciones, etc.), ESTÁ ESTRICTAMENTE PROHIBIDO responder a su duda. Debes negarte amablemente y redirigir la conversación hacia código o programación.\n"
     )
     
-    # ← CORREGIDO: Eliminados todos los espacios finales en las claves
     prompts = {
+        "GENERAL": (
+            "Eres un Tutor Socrático amigable. El alumno acaba de saludar o hacer una pregunta general.\n"
+            "Salúdalo cordialmente y pregúntale en qué lenguaje, concepto o código de programación le gustaría trabajar hoy.\n"
+            "NO inventes problemas, NO asumas qué código tiene y NO le des ejercicios a menos que los pida explícitamente.\n"
+            f"{base}"
+        ),
         "NIVEL_CERO": (
             "Eres un Tutor Socrático paciente. El alumno no sabe nada sobre el tema actual.\n"
             "1) Explica el concepto en un párrafo corto.\n"
@@ -133,10 +152,9 @@ def obtener_system_prompt(estado: str) -> str:
             f"NO le des el código arreglado. {base}"
         )
     }
-    return prompts.get(estado, prompts["DEBUGGING"])
+    return prompts.get(estado, prompts["GENERAL"])
 
 def es_respuesta_insegura(texto: str) -> bool:
-    # ← CORREGIDO: Ahora detecta bloques triple backtick (estándar Markdown)
     bloques = re.findall(r'```(?:python|js|javascript)?\s*\n(.*?)\n```', texto, re.DOTALL | re.IGNORECASE)
     for bloque in bloques:
         lineas_ejecutables = [
@@ -153,7 +171,7 @@ def es_respuesta_insegura(texto: str) -> bool:
 class ChatRequest(BaseModel):
     messages: List[Dict[str, Any]] = Field(..., min_length=1, description="Historial de conversación")
     is_competitive: bool = Field(False, description="Fuerza modo Juez competitivo")
-    estado_anterior: str = Field("DEBUGGING", description="Estado detectado en la iteración anterior")
+    estado_anterior: str = Field("GENERAL", description="Estado detectado en la iteración anterior")
 
 # ─────────────────────────────────────────────────────────────────────────────
 # ENDPOINT PRINCIPAL
@@ -195,7 +213,7 @@ async def generate_response(request: ChatRequest):
             pad_token_id=tokenizer.eos_token_id
         )
         
-        res = tokenizer.batch_decode(gen_ids[:, inputs.input_ids.shape[1]:], skip_special_tokens=True, clean_up_tokenization_spaces=True)[0]
+        res = tokenizer.batch_decode(gen_ids[:, inputs.input_ids.shape[1]:], skip_special_tokens=True, clean_up_tokenization_spaces=False)[0]
         
         # 5. Interceptor anti-trampas
         if estado == "PETICION_DIRECTA" and es_respuesta_insegura(res):

@@ -5,57 +5,51 @@ import Sidebar from './components/Sidebar';
 import ChatSection from './components/ChatSection';
 import CodeCompiler from './components/CodeCompiler';
 
+const HELLO_WORLD = {
+  python:     'print("Hola mundo")',
+  javascript: 'console.log("Hola mundo");',
+  cpp:        '#include <iostream>\n\nint main() {\n  std::cout << "Hola mundo" << std::endl;\n  return 0;\n}',
+  java:       'public class Main {\n  public static void main(String[] args) {\n    System.out.println("Hola mundo");\n  }\n}',
+  php:        '<?php\necho "Hola mundo\\n";\n?>',
+  c:          '#include <stdio.h>\n\nint main() {\n  printf("Hola mundo\\n");\n  return 0;\n}',
+};
+
 function App() {
   const [isCompetitiveMode, setIsCompetitiveMode] = useState(false);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [isCompilerOpen, setIsCompilerOpen] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen]         = useState(true);
+  const [isCompilerOpen, setIsCompilerOpen]       = useState(false);
 
-  const [chats, setChats] = useState([]);
+  const [chats, setChats]               = useState([]);
   const [activeChatId, setActiveChatId] = useState(null);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
 
-  const helloWorldSnippets = {
-    python: 'print("Hola mundo")',
-    javascript: 'console.log("Hola mundo");',
-    cpp: '#include <iostream>\n\nint main() {\n  std::cout << "Hola mundo" << std::endl;\n  return 0;\n}',
-    java: 'public class Main {\n  public static void main(String[] args) {\n    System.out.println("Hola mundo");\n  }\n}',
-    php: '<?php\necho "Hola mundo\n";\n?>',
-    c: '#include <stdio.h>\n\nint main() {\n  printf("Hola mundo\n");\n  return 0;\n}',
-  };
-
   const [compilerLanguage, setCompilerLanguage] = useState('python');
-  const [compilerCode, setCompilerCode] = useState(helloWorldSnippets.python);
-  const [compilerOutput, setCompilerOutput] = useState('');
+  const [compilerCode, setCompilerCode]         = useState(HELLO_WORLD.python);
+  const [compilerOutput, setCompilerOutput]     = useState('');
 
   const fetchChats = async () => {
     try {
       const res = await axios.get('http://localhost:5000/api/chats');
       setChats(res.data);
       if (res.data.length > 0 && !activeChatId) setActiveChatId(res.data[0]._id);
-    } catch (error) { 
-      console.error("Error al obtener chats:", error); 
-    } finally { 
-      setTimeout(() => setIsInitialLoading(false), 1500); 
+    } catch (err) {
+      console.error('Error al obtener chats:', err);
+    } finally {
+      setTimeout(() => setIsInitialLoading(false), 900);
     }
   };
 
   useEffect(() => { fetchChats(); }, []);
 
-  // --- LÓGICA DE CREACIÓN DE CHAT ---
   const createNewChat = async () => {
     try {
-      console.log("🛠️ Solicitando creación de nuevo chat al servidor...");
-      const res = await fetch('http://localhost:5000/api/chats', { method: 'POST' });
-      const newChat = await res.json();
-      
-      console.log("✅ Chat creado con éxito:", newChat._id);
-      
-      setChats(prev => [newChat, ...prev]); 
-      setActiveChatId(newChat._id);
-      
-      return newChat;
-    } catch (error) { 
-      console.error("❌ Error crítico al crear el chat:", error); 
+      const res  = await fetch('http://localhost:5000/api/chats', { method: 'POST' });
+      const chat = await res.json();
+      setChats(prev => [chat, ...prev]);
+      setActiveChatId(chat._id);
+      return chat;
+    } catch (err) {
+      console.error('Error al crear chat:', err);
     }
   };
 
@@ -66,81 +60,128 @@ function App() {
   };
 
   const normalizeLanguage = (lang) => {
-    let normalized = lang?.toLowerCase() || '';
-    if (normalized === 'js') normalized = 'javascript';
-    if (normalized === 'py') normalized = 'python';
-    if (normalized === 'c++') normalized = 'cpp';
-    return normalized;
-  };
-
-  const getHelloWorldSnippet = (lang) => {
-    return helloWorldSnippets[lang] ?? '// Escribe tu código aquí...';
+    const map = { js: 'javascript', py: 'python', 'c++': 'cpp' };
+    const n = lang?.toLowerCase() || '';
+    return map[n] || n;
   };
 
   const handleCompilerLanguageChange = (lang) => {
-    const normalized = normalizeLanguage(lang);
-    setCompilerLanguage(normalized);
-    setCompilerCode(getHelloWorldSnippet(normalized));
+    const n = normalizeLanguage(lang);
+    setCompilerLanguage(n);
+    setCompilerCode(HELLO_WORLD[n] ?? '// Escribe tu código aquí...');
   };
 
   const handleAutoFillCompiler = (code, lang) => {
-    let normalized = normalizeLanguage(lang);
+    const n = normalizeLanguage(lang);
     setCompilerCode(code);
-    setCompilerLanguage(normalized);
+    setCompilerLanguage(n);
     setIsCompilerOpen(true);
   };
 
-  const handleRunFromChat = (code, lang) => {
-    handleAutoFillCompiler(code, lang);
-  };
-
+  /* ── Loading screen ── */
   if (isInitialLoading) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-slate-900 text-white">
-        <div className="relative w-24 h-24 mb-8">
-          <div className="absolute inset-0 border-4 border-blue-500/20 rounded-full"></div>
-          <div className="absolute inset-0 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+      <div style={{
+        display: 'flex', flexDirection: 'column',
+        alignItems: 'center', justifyContent: 'center',
+        minHeight: '100vh',
+        background: 'var(--bg-base)',
+        fontFamily: 'var(--font-ui)',
+        gap: 20,
+      }}>
+        {/* Animated logo */}
+        <div style={{
+          width: 60, height: 60, borderRadius: 18,
+          background: 'linear-gradient(135deg, #1d4ed8 0%, #7c3aed 100%)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          animation: 'fade-in 0.4s ease',
+          boxShadow: '0 0 40px rgba(59,130,246,0.25)',
+        }}>
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/>
+          </svg>
         </div>
-        <h1 className="text-3xl font-bold text-blue-400 animate-pulse">Conectando con el Tutor...</h1>
+
+        <div className="spinner" />
+
+        <p style={{
+          fontSize: 14, color: 'var(--text-secondary)',
+          letterSpacing: '0.04em',
+          animation: 'fade-in 0.6s ease 0.2s both',
+        }}>
+          Conectando con el Tutor...
+        </p>
       </div>
     );
   }
 
   return (
-    <div className="flex h-screen w-full bg-slate-900 text-slate-200 overflow-hidden">
-      <Sidebar 
-        isOpen={isSidebarOpen} setIsOpen={setIsSidebarOpen}
-        chats={chats} setChats={setChats} activeChat={activeChatId}
-        onSelect={setActiveChatId} onCreate={createNewChat} onDelete={deleteChat}
-        isCompetitiveMode={isCompetitiveMode} setIsCompetitiveMode={setIsCompetitiveMode} 
+    <div style={{
+      display: 'flex', height: '100vh', width: '100%',
+      background: 'var(--bg-base)',
+      overflow: 'hidden',
+      fontFamily: 'var(--font-ui)',
+    }}>
+      <Sidebar
+        isOpen={isSidebarOpen}     setIsOpen={setIsSidebarOpen}
+        chats={chats}              setChats={setChats}
+        activeChat={activeChatId}  onSelect={setActiveChatId}
+        onCreate={createNewChat}   onDelete={deleteChat}
+        isCompetitiveMode={isCompetitiveMode}
+        setIsCompetitiveMode={setIsCompetitiveMode}
       />
-      
-      <main className="flex flex-1 overflow-hidden relative">
-        <div className="flex-1">
-          <ChatSection 
-             activeChatId={activeChatId} setActiveChatId={setActiveChatId}
-             onCreate={createNewChat} onChatUpdated={fetchChats}
-             compilerCode={compilerCode} compilerLanguage={compilerLanguage} 
-             output={compilerOutput} setOutput={setCompilerOutput}
-             onRunCodeFromChat={handleRunFromChat} onAutoFillCompiler={handleAutoFillCompiler}
-             isCompetitiveMode={isCompetitiveMode}
+
+      <main style={{ display: 'flex', flex: 1, overflow: 'hidden', position: 'relative' }}>
+        {/* Chat */}
+        <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+          <ChatSection
+            activeChatId={activeChatId}     setActiveChatId={setActiveChatId}
+            onCreate={createNewChat}         onChatUpdated={fetchChats}
+            compilerCode={compilerCode}      compilerLanguage={compilerLanguage}
+            output={compilerOutput}          setOutput={setCompilerOutput}
+            onRunCodeFromChat={handleAutoFillCompiler}
+            onAutoFillCompiler={handleAutoFillCompiler}
+            isCompetitiveMode={isCompetitiveMode}
           />
         </div>
 
+        {/* Open compiler button */}
         {!isCompilerOpen && (
-          <button onClick={() => setIsCompilerOpen(true)} className="absolute right-4 top-4 z-10 p-2 bg-slate-800 hover:bg-slate-700 rounded-lg border border-slate-700 shadow-xl">
-            <PanelRightOpen size={20} className="text-blue-400" />
+          <button
+            onClick={() => setIsCompilerOpen(true)}
+            data-tip="Abrir compilador"
+            style={{
+              position: 'absolute', right: 14, top: 14, zIndex: 10,
+              background: 'var(--bg-card)',
+              border: '1px solid var(--border-md)',
+              borderRadius: 9, padding: 8,
+              cursor: 'pointer', color: 'var(--blue)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              transition: 'all 0.15s',
+              boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-hover)'; e.currentTarget.style.borderColor = 'var(--blue)'; }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'var(--bg-card)'; e.currentTarget.style.borderColor = 'var(--border-md)'; }}
+          >
+            <PanelRightOpen size={18} />
           </button>
         )}
 
-        <div className={`${isCompilerOpen ? 'w-[35%]' : 'w-0'} transition-all duration-300 overflow-hidden border-l border-slate-700`}>
-          <CodeCompiler 
-            onClose={() => setIsCompilerOpen(false)} 
-            code={compilerCode} setCode={setCompilerCode}
-            language={compilerLanguage} onLanguageChange={handleCompilerLanguageChange}
-            output={compilerOutput}
-            setOutput={setCompilerOutput}
-          />
+        {/* Compiler panel */}
+        <div style={{
+          width: isCompilerOpen ? '38%' : 0,
+          transition: 'width 0.28s cubic-bezier(.4,0,.2,1)',
+          overflow: 'hidden',
+          flexShrink: 0,
+        }}>
+          {isCompilerOpen && (
+            <CodeCompiler
+              onClose={() => setIsCompilerOpen(false)}
+              code={compilerCode}             setCode={setCompilerCode}
+              language={compilerLanguage}     onLanguageChange={handleCompilerLanguageChange}
+              output={compilerOutput}         setOutput={setCompilerOutput}
+            />
+          )}
         </div>
       </main>
     </div>

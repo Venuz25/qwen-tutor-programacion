@@ -1,17 +1,37 @@
 import { useState } from 'react';
-import { MessageSquare, Trash2, Edit2, Check, X, GripVertical, PanelLeftClose, PanelLeftOpen, Plus, Trophy } from 'lucide-react';
+import { MessageSquare, Trash2, Edit2, Check, X, PanelLeftClose, PanelLeftOpen, Plus, Trophy, GripVertical } from 'lucide-react';
 
-const Sidebar = ({ isOpen, setIsOpen, chats, setChats, activeChat, onSelect, onCreate, onDelete, isCompetitiveMode, setIsCompetitiveMode }) => {
-  const [editingId, setEditingId] = useState(null);
-  const [tempTitle, setTempTitle] = useState("");
+const STATE_BADGES = {
+  DEBUGGING:        { label: 'Debug',      cls: 'badge-red' },
+  COMPETITIVO:      { label: 'Competitivo', cls: 'badge-amber' },
+  NIVEL_CERO:       { label: 'Básico',     cls: 'badge-blue' },
+  FRUSTRACION:      { label: 'Apoyo',      cls: 'badge-blue' },
+  PETICION_DIRECTA: { label: 'Guiado',     cls: 'badge-emerald' },
+};
 
-  const handleDragStart = (e, index) => e.dataTransfer.setData("index", index);
+const Sidebar = ({
+  isOpen, setIsOpen,
+  chats, setChats,
+  activeChat, onSelect, onCreate, onDelete,
+  isCompetitiveMode, setIsCompetitiveMode,
+}) => {
+  const [editingId, setEditingId]   = useState(null);
+  const [tempTitle, setTempTitle]   = useState('');
+  const [hoveredId, setHoveredId]   = useState(null);
+  const [draggingIdx, setDraggingIdx] = useState(null);
+
+  const handleDragStart = (e, index) => {
+    e.dataTransfer.setData('index', index);
+    setDraggingIdx(index);
+  };
+  const handleDragEnd = () => setDraggingIdx(null);
   const handleDrop = (e, targetIndex) => {
-    const sourceIndex = e.dataTransfer.getData("index");
+    const sourceIndex = Number(e.dataTransfer.getData('index'));
     const newChats = [...chats];
     const [removed] = newChats.splice(sourceIndex, 1);
     newChats.splice(targetIndex, 0, removed);
     setChats(newChats);
+    setDraggingIdx(null);
   };
 
   const saveTitle = async (id) => {
@@ -19,103 +39,239 @@ const Sidebar = ({ isOpen, setIsOpen, chats, setChats, activeChat, onSelect, onC
     await fetch(`http://localhost:5000/api/chats/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title: tempTitle })
+      body: JSON.stringify({ title: tempTitle }),
     });
     setChats(chats.map(c => c._id === id ? { ...c, title: tempTitle } : c));
     setEditingId(null);
   };
 
   return (
-    <div className={`${isOpen ? 'w-64' : 'w-16'} bg-slate-900 border-r border-slate-700 flex flex-col transition-all duration-300 flex-shrink-0 z-20`}>
-      
-      {/* HEADER DEL SIDEBAR CON BOTÓN DE TOGGLE */}
-      <div className={`flex items-center p-4 border-b border-slate-800 ${isOpen ? 'justify-between' : 'justify-center'}`}>
-        {isOpen && <span className="font-bold text-slate-200 tracking-wide text-sm">Tutor de Programación</span>}
-        <button 
-          onClick={() => setIsOpen(!isOpen)} 
-          className="text-slate-400 hover:text-white transition-colors p-1 bg-slate-800 hover:bg-slate-700 rounded-lg"
-          title={isOpen ? "Ocultar panel" : "Mostrar panel"}
-        >
-          {isOpen ? <PanelLeftClose size={20} /> : <PanelLeftOpen size={20} />}
-        </button>
-      </div>
-
-      {/* ÁREA DE BOTONES PRINCIPALES */}
-      <div className="p-3 space-y-2">
-        <button 
-          onClick={onCreate} 
-          className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-500 py-2.5 rounded-lg text-white font-bold transition-all shadow-lg"
-          title="Crear Nuevo Chat"
-        >
-          <Plus size={20} />
-          {isOpen && <span>Nuevo Chat</span>}
-        </button>
-
-        {/* --- NUEVO: BOTÓN MODO COMPETITIVO --- */}
-        <button 
-          onClick={() => setIsCompetitiveMode(!isCompetitiveMode)}
-          className={`w-full flex items-center ${isOpen ? 'justify-start px-4' : 'justify-center'} gap-2 py-2.5 rounded-lg text-xs font-bold transition-all shadow-md ${
-            isCompetitiveMode 
-              ? 'bg-amber-500 text-slate-900 hover:bg-amber-400' 
-              : 'bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-white'
-          }`}
-          title={isCompetitiveMode ? "Desactivar Modo Juez" : "Activar Modo Juez"}
-        >
-          <Trophy size={18} />
-          {isOpen && <span>{isCompetitiveMode ? "MODO JUEZ: ON" : "MODO JUEZ: OFF"}</span>}
-        </button>
-      </div>
-
-      {/* LISTA DE CHATS */}
-      <div className="flex-1 overflow-y-auto p-2 space-y-1 custom-scrollbar">
-        {chats.map((chat, i) => (
-          <div 
-            key={chat._id} 
-            draggable 
-            onDragStart={e => handleDragStart(e, i)} 
-            onDragOver={e => e.preventDefault()} 
-            onDrop={e => handleDrop(e, i)}
-            className={`group flex items-center p-2 rounded-lg cursor-pointer transition-colors ${
-              activeChat === chat._id ? 'bg-slate-800 border border-slate-700' : 'hover:bg-slate-800/50 border border-transparent'
-            } ${!isOpen ? 'justify-center' : ''}`}
-            onClick={() => onSelect(chat._id)}
-            title={!isOpen ? chat.title : ""} 
-          >
-            
-            {/* VISTA COLAPSADA */}
-            {!isOpen ? (
-              <MessageSquare size={20} className={activeChat === chat._id ? "text-blue-400" : "text-slate-500 group-hover:text-slate-300"} />
-            ) : (
-              /* VISTA EXPANDIDA */
-              <>
-                <GripVertical size={14} className="text-slate-600 mr-2 opacity-0 group-hover:opacity-100 flex-shrink-0" />
-                
-                {editingId === chat._id ? (
-                  <div className="flex flex-1 gap-2 items-center">
-                    <input 
-                      autoFocus
-                      value={tempTitle} 
-                      onChange={e => setTempTitle(e.target.value)} 
-                      onKeyDown={e => e.key === 'Enter' && saveTitle(chat._id)}
-                      className="w-full bg-slate-700 rounded px-2 py-1 text-sm text-white outline-none focus:ring-1 focus:ring-blue-500"
-                    />
-                    <Check size={16} onClick={(e) => { e.stopPropagation(); saveTitle(chat._id); }} className="text-emerald-500 hover:text-emerald-400"/>
-                  </div>
-                ) : (
-                  <div className="flex-1 truncate text-sm text-slate-300 select-none">{chat.title}</div>
-                )}
-
-                {/* BOTONES DE EDITAR Y BORRAR */}
-                <div className="flex gap-1.5 opacity-0 group-hover:opacity-100 ml-2">
-                  <Edit2 size={14} onClick={e => { e.stopPropagation(); setEditingId(chat._id); setTempTitle(chat.title); }} className="text-slate-500 hover:text-blue-400 transition-colors"/>
-                  <Trash2 size={14} onClick={e => { e.stopPropagation(); onDelete(chat._id); }} className="text-slate-500 hover:text-red-500 transition-colors"/>
-                </div>
-              </>
-            )}
+    <aside
+      style={{
+        width: isOpen ? '240px' : '60px',
+        transition: 'width 0.25s cubic-bezier(.4,0,.2,1)',
+        flexShrink: 0,
+        background: 'var(--bg-surface)',
+        borderRight: '1px solid var(--border)',
+        display: 'flex',
+        flexDirection: 'column',
+        overflow: 'hidden',
+        zIndex: 20,
+        fontFamily: 'var(--font-ui)',
+      }}
+    >
+      {/* ── Logo / Toggle ── */}
+      <div style={{
+        display: 'flex', alignItems: 'center',
+        justifyContent: isOpen ? 'space-between' : 'center',
+        padding: '14px 12px',
+        borderBottom: '1px solid var(--border)',
+        flexShrink: 0,
+      }}>
+        {isOpen && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, animation: 'fade-in 0.2s ease' }}>
+            <div style={{
+              width: 32, height: 32, borderRadius: 9,
+              background: 'linear-gradient(135deg, var(--blue) 0%, #6366f1 100%)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              flexShrink: 0,
+            }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/>
+              </svg>
+            </div>
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', lineHeight: 1.2 }}>Tutor IA</div>
+              <div style={{ fontSize: 11, color: 'var(--text-muted)', letterSpacing: '0.02em' }}>modo socrático</div>
+            </div>
           </div>
-        ))}
+        )}
+        <button
+          onClick={() => setIsOpen(!isOpen)}
+          data-tip={isOpen ? 'Colapsar' : 'Expandir'}
+          style={{
+            background: 'transparent', border: '1px solid var(--border)',
+            borderRadius: 7, padding: 6, cursor: 'pointer',
+            color: 'var(--text-secondary)', display: 'flex',
+            alignItems: 'center', justifyContent: 'center',
+            transition: 'all 0.15s',
+          }}
+          onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-hover)'; e.currentTarget.style.color = 'var(--text-primary)'; }}
+          onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-secondary)'; }}
+        >
+          {isOpen
+            ? <PanelLeftClose size={16} />
+            : <PanelLeftOpen size={16} />
+          }
+        </button>
       </div>
-    </div>
+
+      {/* ── Action buttons ── */}
+      <div style={{ padding: '10px 10px 6px', display: 'flex', flexDirection: 'column', gap: 6, flexShrink: 0 }}>
+        <button
+          onClick={onCreate}
+          data-tip={!isOpen ? 'Nuevo chat' : undefined}
+          className="btn-base btn-primary"
+          style={{ justifyContent: isOpen ? 'center' : 'center', width: '100%' }}
+        >
+          <Plus size={15} />
+          {isOpen && <span>Nuevo chat</span>}
+        </button>
+
+        <button
+          onClick={() => setIsCompetitiveMode(!isCompetitiveMode)}
+          data-tip={!isOpen ? (isCompetitiveMode ? 'Modo juez: ON' : 'Modo juez: OFF') : undefined}
+          style={{
+            width: '100%', display: 'flex',
+            alignItems: 'center', justifyContent: isOpen ? 'flex-start' : 'center',
+            gap: 7, padding: '7px 10px',
+            borderRadius: 8, cursor: 'pointer',
+            fontFamily: 'var(--font-ui)', fontSize: 13, fontWeight: 500,
+            transition: 'all 0.15s',
+            border: `1px solid ${isCompetitiveMode ? 'rgba(245,158,11,0.35)' : 'var(--border)'}`,
+            background: isCompetitiveMode ? 'rgba(245,158,11,0.1)' : 'transparent',
+            color: isCompetitiveMode ? '#fcd34d' : 'var(--text-secondary)',
+          }}
+          onMouseEnter={e => !isCompetitiveMode && (e.currentTarget.style.background = 'var(--bg-hover)')}
+          onMouseLeave={e => !isCompetitiveMode && (e.currentTarget.style.background = 'transparent')}
+        >
+          <Trophy size={15} />
+          {isOpen && <span>{isCompetitiveMode ? 'Juez: ON' : 'Juez: OFF'}</span>}
+        </button>
+      </div>
+
+      {/* ── Section label ── */}
+      {isOpen && (
+        <div style={{
+          padding: '10px 14px 4px',
+          fontSize: 10, fontWeight: 600,
+          color: 'var(--text-muted)',
+          letterSpacing: '0.08em',
+          textTransform: 'uppercase',
+          flexShrink: 0,
+        }}>
+          Conversaciones
+        </div>
+      )}
+
+      {/* ── Chat list ── */}
+      <div
+        className="custom-scrollbar"
+        style={{ flex: 1, overflowY: 'auto', padding: '4px 8px' }}
+      >
+        {chats.map((chat, i) => {
+          const isActive  = activeChat === chat._id;
+          const isHovered = hoveredId === chat._id;
+          const isDragging = draggingIdx === i;
+
+          return (
+            <div
+              key={chat._id}
+              draggable
+              onDragStart={e => handleDragStart(e, i)}
+              onDragEnd={handleDragEnd}
+              onDragOver={e => e.preventDefault()}
+              onDrop={e => handleDrop(e, i)}
+              onMouseEnter={() => setHoveredId(chat._id)}
+              onMouseLeave={() => setHoveredId(null)}
+              onClick={() => onSelect(chat._id)}
+              className="chat-item"
+              style={{
+                display: 'flex', alignItems: 'center',
+                gap: 8, padding: isOpen ? '7px 8px' : '8px',
+                borderRadius: 8, cursor: 'pointer', marginBottom: 2,
+                justifyContent: isOpen ? 'flex-start' : 'center',
+                border: `1px solid ${isActive ? 'var(--border-md)' : 'transparent'}`,
+                background: isActive ? 'var(--bg-card)' : isDragging ? 'var(--bg-hover)' : 'transparent',
+                opacity: isDragging ? 0.5 : 1,
+                transition: 'all 0.15s',
+                position: 'relative',
+              }}
+              title={!isOpen ? chat.title : ''}
+            >
+              {/* Drag handle */}
+              {isOpen && isHovered && editingId !== chat._id && (
+                <GripVertical size={12} style={{ color: 'var(--text-muted)', flexShrink: 0, cursor: 'grab' }} />
+              )}
+
+              <MessageSquare
+                size={15}
+                style={{ color: isActive ? 'var(--blue)' : 'var(--text-muted)', flexShrink: 0 }}
+              />
+
+              {isOpen && (
+                <>
+                  {editingId === chat._id ? (
+                    <div style={{ display: 'flex', flex: 1, gap: 4, alignItems: 'center' }}>
+                      <input
+                        autoFocus
+                        value={tempTitle}
+                        onChange={e => setTempTitle(e.target.value)}
+                        onKeyDown={e => e.key === 'Enter' && saveTitle(chat._id)}
+                        style={{
+                          flex: 1, background: 'var(--bg-base)',
+                          border: '1px solid var(--blue)',
+                          borderRadius: 5, padding: '2px 7px',
+                          fontSize: 12, color: 'var(--text-primary)',
+                          fontFamily: 'var(--font-ui)', outline: 'none',
+                        }}
+                      />
+                      <Check
+                        size={13}
+                        style={{ color: 'var(--emerald)', cursor: 'pointer', flexShrink: 0 }}
+                        onClick={e => { e.stopPropagation(); saveTitle(chat._id); }}
+                      />
+                      <X
+                        size={13}
+                        style={{ color: 'var(--text-muted)', cursor: 'pointer', flexShrink: 0 }}
+                        onClick={e => { e.stopPropagation(); setEditingId(null); }}
+                      />
+                    </div>
+                  ) : (
+                    <span style={{
+                      flex: 1, fontSize: 13, color: isActive ? 'var(--text-primary)' : 'var(--text-secondary)',
+                      overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                      fontWeight: isActive ? 500 : 400,
+                    }}>
+                      {chat.title}
+                    </span>
+                  )}
+
+                  {/* Action icons on hover */}
+                  {isHovered && editingId !== chat._id && (
+                    <div style={{ display: 'flex', gap: 4, flexShrink: 0, animation: 'fade-in 0.15s ease' }}>
+                      <Edit2
+                        size={12}
+                        style={{ color: 'var(--text-muted)', cursor: 'pointer', transition: 'color 0.1s' }}
+                        onClick={e => { e.stopPropagation(); setEditingId(chat._id); setTempTitle(chat.title); }}
+                        onMouseEnter={e => e.currentTarget.style.color = 'var(--blue)'}
+                        onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}
+                      />
+                      <Trash2
+                        size={12}
+                        style={{ color: 'var(--text-muted)', cursor: 'pointer', transition: 'color 0.1s' }}
+                        onClick={e => { e.stopPropagation(); onDelete(chat._id); }}
+                        onMouseEnter={e => e.currentTarget.style.color = 'var(--red)'}
+                        onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}
+                      />
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          );
+        })}
+
+        {chats.length === 0 && isOpen && (
+          <div style={{
+            textAlign: 'center', padding: '24px 12px',
+            color: 'var(--text-muted)', fontSize: 12, lineHeight: 1.6,
+          }}>
+            Aún no hay chats.<br />Crea uno para comenzar.
+          </div>
+        )}
+      </div>
+    </aside>
   );
 };
 

@@ -1,23 +1,18 @@
 {
   "name": "server",
-  "version": "1.0.0",
-  "description": "",
+  "version": "2.0.0",
+  "description": "Tutor de programación — backend con SQLite nativo",
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
     "dev": "nodemon index.js"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "type": "commonjs",
   "dependencies": {
     "axios": "^1.15.1",
-    "child_process": "^1.0.2",
+    "better-sqlite3": "^9.6.0",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
-    "mongoose": "^9.4.1",
     "socket.io": "^4.8.3"
   },
   "devDependencies": {

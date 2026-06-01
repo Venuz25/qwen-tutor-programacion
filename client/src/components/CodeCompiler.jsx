@@ -1,136 +1,309 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Editor from '@monaco-editor/react';
-import { Play, X, Loader2, TerminalSquare } from 'lucide-react';
+import { Play, X, Loader2, TerminalSquare, ChevronDown, Square } from 'lucide-react';
 import { io } from 'socket.io-client';
 
-const CodeCompiler = ({ 
-    onClose, code, setCode, language, onLanguageChange, output, setOutput 
-}) => {
-  
-  const [inputValue, setInputValue] = useState("");
-  const [isCompiling, setIsCompiling] = useState(false);
-    
-  const socketRef = useRef(null);
-  const consoleEndRef = useRef(null);
-  const inputRef = useRef(null);
+const LANGUAGES = [
+  { value: 'python',     label: 'Python',     color: '#3b82f6' },
+  { value: 'javascript', label: 'JavaScript',  color: '#f59e0b' },
+  { value: 'cpp',        label: 'C++',         color: '#a78bfa' },
+  { value: 'java',       label: 'Java',        color: '#f97316' },
+  { value: 'php',        label: 'PHP',         color: '#8b5cf6' },
+  { value: 'c',          label: 'C',           color: '#60a5fa' },
+];
 
-  // Auto-scroll de la consola
+const CodeCompiler = ({
+  onClose, code, setCode, language, onLanguageChange, output, setOutput
+}) => {
+  const [inputValue, setInputValue]   = useState('');
+  const [isCompiling, setIsCompiling] = useState(false);
+  const [consoleHeight, setConsoleHeight] = useState(200);
+  const [isDraggingDivider, setIsDraggingDivider] = useState(false);
+
+  const socketRef    = useRef(null);
+  const consoleEndRef = useRef(null);
+  const inputRef     = useRef(null);
+  const containerRef = useRef(null);
+
+  const currentLang = LANGUAGES.find(l => l.value === language) || LANGUAGES[0];
+
   useEffect(() => {
-      consoleEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    consoleEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [output]);
 
-  // Conexión inicial de Sockets
   useEffect(() => {
-      // Conectar al backend
-      socketRef.current = io('http://localhost:5000');
+    socketRef.current = io('http://localhost:5000');
 
-      socketRef.current.on('terminal_output', (data) => {
-          setOutput((prev) => prev + data);
-      });
+    socketRef.current.on('terminal_output',   d => setOutput(p => p + d));
+    socketRef.current.on('terminal_error',    d => setOutput(p => p + d));
+    socketRef.current.on('execution_finished', d => {
+      setOutput(p => p + d);
+      setIsCompiling(false);
+    });
 
-      socketRef.current.on('terminal_error', (data) => {
-          setOutput((prev) => prev + data);
-      });
-
-      socketRef.current.on('execution_finished', (data) => {
-          setOutput((prev) => prev + data);
-          setIsCompiling(false);
-      });
-
-      // Limpiar al cerrar el componente
-      return () => {
-          socketRef.current.disconnect();
-      };
+    return () => socketRef.current.disconnect();
   }, []);
 
+  // Resizable divider
+  useEffect(() => {
+    if (!isDraggingDivider) return;
+    const onMove = e => {
+      const container = containerRef.current;
+      if (!container) return;
+      const rect = container.getBoundingClientRect();
+      const fromBottom = rect.bottom - e.clientY;
+      setConsoleHeight(Math.max(100, Math.min(fromBottom, rect.height * 0.65)));
+    };
+    const onUp = () => setIsDraggingDivider(false);
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+    return () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); };
+  }, [isDraggingDivider]);
+
   const handleExecute = () => {
-      setOutput(""); // Limpiar consola
-      setIsCompiling(true);
-      socketRef.current.emit('start_execution', { code, language });
-      
-      // Auto-enfocar el input interactivo por si el programa pide datos
-      setTimeout(() => inputRef.current?.focus(), 100);
+    setOutput('');
+    setIsCompiling(true);
+    socketRef.current.emit('start_execution', { code, language });
+    setTimeout(() => inputRef.current?.focus(), 150);
   };
 
-  const handleInputSubmit = (e) => {
-      if (e.key === 'Enter') {
-          // Mostrar lo que el usuario escribió en la consola
-          setOutput((prev) => prev + inputValue + "\n");
-          
-          // Enviar al contenedor de Docker/Python
-          socketRef.current.emit('terminal_input', inputValue);
-          setInputValue(""); // Limpiar caja
-      }
+  const handleStop = () => {
+    socketRef.current.emit('stop_execution');
+    setIsCompiling(false);
+    setOutput(p => p + '\n[Ejecución detenida por el usuario]\n');
   };
+
+  const handleInputSubmit = e => {
+    if (e.key === 'Enter') {
+      setOutput(p => p + inputValue + '\n');
+      socketRef.current.emit('terminal_input', inputValue);
+      setInputValue('');
+    }
+  };
+
+  const editorMonacoLanguage = (language === 'c' || language === 'cpp') ? 'cpp' : language;
 
   return (
-    <div className="flex flex-col h-full bg-slate-900 border-l border-slate-700 shadow-2xl">
-      {/* HEADER */}
-      <div className="flex items-center justify-between p-4 border-b border-slate-700 bg-slate-800">
-        <div className="flex items-center gap-4">
-          <select 
-            value={language}
-            onChange={(e) => onLanguageChange(e.target.value)}
-            className="bg-slate-700 text-white rounded px-3 py-1.5 outline-none text-sm border border-slate-600 focus:border-blue-500"
-          >
-            <option value="python">Python</option>
-            <option value="javascript">JavaScript</option>
-            <option value="cpp">C++</option>
-            <option value="java">Java</option>
-            <option value="php">PHP</option>
-            <option value="c">C</option>
-          </select>
-          
-          <button 
-            onClick={handleExecute}
-            disabled={isCompiling}
-            className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-1.5 rounded text-sm font-medium transition-colors disabled:opacity-50"
-          >
-            {isCompiling ? <Loader2 size={16} className="animate-spin" /> : <Play size={16} />}
-            {isCompiling ? 'Ejecutando...' : 'Ejecutar'}
-          </button>
+    <div
+      ref={containerRef}
+      style={{
+        display: 'flex', flexDirection: 'column', height: '100%',
+        background: 'var(--bg-surface)',
+        borderLeft: '1px solid var(--border)',
+        fontFamily: 'var(--font-ui)',
+      }}
+    >
+      {/* ── Header ── */}
+      <div style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        padding: '10px 14px',
+        borderBottom: '1px solid var(--border)',
+        background: 'var(--bg-surface)',
+        flexShrink: 0,
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          {/* Language selector */}
+          <div style={{ position: 'relative' }}>
+            <select
+              value={language}
+              onChange={e => onLanguageChange(e.target.value)}
+              style={{
+                appearance: 'none',
+                background: 'var(--bg-card)',
+                border: '1px solid var(--border-md)',
+                borderRadius: 7,
+                color: currentLang.color,
+                fontFamily: 'var(--font-ui)',
+                fontSize: 13, fontWeight: 500,
+                padding: '5px 28px 5px 10px',
+                cursor: 'pointer', outline: 'none',
+                transition: 'border-color 0.15s',
+              }}
+              onFocus={e => e.target.style.borderColor = 'var(--blue)'}
+              onBlur={e => e.target.style.borderColor = 'var(--border-md)'}
+            >
+              {LANGUAGES.map(l => (
+                <option key={l.value} value={l.value} style={{ color: '#e2e8f0', background: '#1c2333' }}>
+                  {l.label}
+                </option>
+              ))}
+            </select>
+            <ChevronDown size={12} style={{
+              position: 'absolute', right: 8, top: '50%',
+              transform: 'translateY(-50%)',
+              color: 'var(--text-muted)', pointerEvents: 'none',
+            }} />
+          </div>
+
+          {/* Run / Stop */}
+          {isCompiling ? (
+            <button
+              onClick={handleStop}
+              className="btn-base"
+              style={{
+                background: 'rgba(239,68,68,0.12)',
+                color: '#fca5a5',
+                border: '1px solid rgba(239,68,68,0.25)',
+              }}
+            >
+              <Square size={13} fill="currentColor" />
+              Detener
+            </button>
+          ) : (
+            <button onClick={handleExecute} className="btn-base btn-run">
+              <Play size={13} fill="currentColor" />
+              Ejecutar
+            </button>
+          )}
         </div>
-        <button onClick={onClose} className="text-slate-400 hover:text-white transition-colors"><X size={20} /></button>
+
+        <button
+          onClick={onClose}
+          style={{
+            background: 'transparent', border: 'none',
+            color: 'var(--text-muted)', cursor: 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            padding: 4, borderRadius: 5, transition: 'color 0.15s',
+          }}
+          onMouseEnter={e => e.currentTarget.style.color = 'var(--text-primary)'}
+          onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}
+        >
+          <X size={16} />
+        </button>
       </div>
 
-      {/* EDITOR */}
-      <div className="flex-1 overflow-hidden">
+      {/* ── Editor ── */}
+      <div style={{ flex: 1, overflow: 'hidden', minHeight: 0 }}>
         <Editor
           height="100%"
           theme="vs-dark"
-          language={language === 'c' || language === 'cpp' ? 'cpp' : language}
+          language={editorMonacoLanguage}
           value={code}
-          onChange={(value) => setCode(value)}
-          options={{ minimap: { enabled: false }, fontSize: 14, wordWrap: 'on', padding: { top: 16 } }}
+          onChange={v => setCode(v)}
+          options={{
+            minimap: { enabled: false },
+            fontSize: 13,
+            fontFamily: 'JetBrains Mono, monospace',
+            fontLigatures: true,
+            wordWrap: 'on',
+            padding: { top: 14, bottom: 14 },
+            scrollBeyondLastLine: false,
+            renderLineHighlight: 'gutter',
+            lineNumbersMinChars: 3,
+            glyphMargin: false,
+            folding: false,
+            cursorBlinking: 'smooth',
+            smoothScrolling: true,
+          }}
         />
       </div>
 
-      {/* CONSOLA INTERACTIVA */}
-      <div 
-        className="h-1/3 min-h-[200px] border-t border-slate-700 bg-[#1e1e1e] flex flex-col cursor-text"
-        onClick={() => inputRef.current?.focus()} // Al hacer clic en cualquier parte de la consola, enfoca el input
+      {/* ── Resizable divider ── */}
+      <div
+        onMouseDown={() => setIsDraggingDivider(true)}
+        style={{
+          height: 5, cursor: 'ns-resize', flexShrink: 0,
+          borderTop: '1px solid var(--border)',
+          background: isDraggingDivider ? 'var(--blue)' : 'transparent',
+          transition: 'background 0.15s',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}
       >
-        <div className="px-4 py-2 bg-slate-800 border-b border-slate-700 text-xs font-mono text-slate-400 uppercase tracking-wider flex items-center gap-2">
-          <TerminalSquare size={14} /> Consola Interactiva
-        </div>
-        <div className="flex-1 p-4 overflow-auto font-mono text-sm text-slate-300">
-          <pre className="whitespace-pre-wrap font-inherit inline">{output}</pre>
-          
-          {/* Input "Invisible" que simula el teclado de la terminal */}
+        <div style={{
+          width: 32, height: 2, borderRadius: 2,
+          background: isDraggingDivider ? 'var(--blue)' : 'var(--border-md)',
+          transition: 'background 0.15s',
+        }} />
+      </div>
+
+      {/* ── Console ── */}
+      <div
+        style={{
+          height: consoleHeight, flexShrink: 0,
+          background: '#0d1117',
+          display: 'flex', flexDirection: 'column',
+          cursor: 'text',
+          borderTop: '1px solid var(--border)',
+        }}
+        onClick={() => inputRef.current?.focus()}
+      >
+        {/* Console header */}
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          padding: '5px 12px',
+          borderBottom: '1px solid rgba(99,130,180,0.1)',
+          background: '#111827',
+          flexShrink: 0,
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <TerminalSquare size={12} style={{ color: 'var(--emerald)' }} />
+            <span style={{
+              fontSize: 10, fontWeight: 600, letterSpacing: '0.08em',
+              textTransform: 'uppercase', color: 'var(--text-muted)',
+              fontFamily: 'var(--font-mono)',
+            }}>
+              Consola
+            </span>
+          </div>
           {isCompiling && (
-              <span className="inline-flex items-center ml-1">
-                  <span className="text-emerald-500 mr-1">❯</span>
-                  <input
-                      ref={inputRef}
-                      type="text"
-                      value={inputValue}
-                      onChange={(e) => setInputValue(e.target.value)}
-                      onKeyDown={handleInputSubmit}
-                      className="bg-transparent border-none outline-none text-white w-full font-mono"
-                      autoComplete="off"
-                      spellCheck="false"
-                  />
-              </span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+              <div style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--emerald)', animation: 'pulse-dot 1s ease infinite' }} />
+              <span style={{ fontSize: 10, color: 'var(--emerald)', fontFamily: 'var(--font-mono)' }}>en ejecución</span>
+            </div>
+          )}
+          {!isCompiling && output && (
+            <button
+              onClick={() => setOutput('')}
+              style={{
+                fontSize: 10, color: 'var(--text-muted)',
+                background: 'transparent', border: 'none',
+                cursor: 'pointer', transition: 'color 0.1s',
+                fontFamily: 'var(--font-ui)',
+              }}
+              onMouseEnter={e => e.currentTarget.style.color = 'var(--text-primary)'}
+              onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}
+            >
+              limpiar
+            </button>
+          )}
+        </div>
+
+        {/* Output area */}
+        <div
+          className="custom-scrollbar"
+          style={{ flex: 1, overflowY: 'auto', padding: '10px 14px' }}
+        >
+          {!output && !isCompiling && (
+            <span style={{ color: 'var(--text-muted)', fontSize: 12, fontFamily: 'var(--font-mono)' }}>
+              La salida del programa aparecerá aquí...
+            </span>
+          )}
+          <pre style={{
+            whiteSpace: 'pre-wrap', fontFamily: 'var(--font-mono)',
+            fontSize: 12, color: '#a8cfe8', lineHeight: 1.65,
+            wordBreak: 'break-word',
+          }}>
+            {output}
+          </pre>
+
+          {isCompiling && (
+            <span style={{ display: 'inline-flex', alignItems: 'center', marginLeft: 2, marginTop: 2 }}>
+              <span style={{ color: 'var(--emerald)', marginRight: 6, fontFamily: 'var(--font-mono)', fontSize: 13 }}>❯</span>
+              <input
+                ref={inputRef}
+                type="text"
+                value={inputValue}
+                onChange={e => setInputValue(e.target.value)}
+                onKeyDown={handleInputSubmit}
+                style={{
+                  background: 'transparent', border: 'none', outline: 'none',
+                  color: '#e2e8f0', fontFamily: 'var(--font-mono)', fontSize: 12,
+                  width: '100%', caretColor: 'var(--emerald)',
+                }}
+                autoComplete="off"
+                spellCheck="false"
+              />
+            </span>
           )}
           <div ref={consoleEndRef} />
         </div>
