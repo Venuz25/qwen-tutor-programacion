@@ -1,4 +1,5 @@
 .env
+/entorno-tutor
 
 .vscode/
 __pycache__/

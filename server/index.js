@@ -1,12 +1,3 @@
-/**
- * server/index.js
- *
- * Cambios respecto a la versión anterior:
- *   ✅ MongoDB + Mongoose  →  better-sqlite3 (archivo local tutor.db)
- *   ✅ Docker containers   →  procesos nativos (python3, node, g++, javac, php)
- *   ✅ Multi-usuario básico via header X-User o query ?user=
- */
-
 const express  = require('express');
 const http     = require('http');
 const { Server } = require('socket.io');
