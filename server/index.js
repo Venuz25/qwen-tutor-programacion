@@ -107,7 +107,9 @@ app.post('/api/chats/:id/messages', async (req, res) => {
     const t0 = Date.now();
 
     // 3. Llamar al modelo de IA
-    const iaRes = await axios.post('http://127.0.0.1:8000/generate', {
+    const IA_ENDPOINT = process.env.IA_URL || 'http://127.0.0.1:8000/generate';
+
+    const iaRes = await axios.post(IA_ENDPOINT, {
       messages: messagesLLM,
       is_competitive: isCompetitiveMode,
     }, { timeout: 0 });
