@@ -505,54 +505,88 @@ const MessageRow = ({ msg, onRunCode }) => {
         fontSize: 14,
         lineHeight: 1.65,
       }}>
-        <div className="prose prose-invert max-w-full break-words overflow-x-auto">
-          <ReactMarkdown
-            remarkPlugins={[remarkGfm]}
-            components={{
-              code({ node, className, children, ...props }) {
-                const match = /language-(\w+)/.exec(className || '');
-                const codeString = String(children).replace(/\n$/, '');
-                
-                if (match && match[1] !== 'markdown') {
-                  return (
-                    <div style={{ margin: '14px 0', borderRadius: '8px', overflow: 'hidden', border: '1px solid rgba(99,130,180,0.2)' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 12px', background: '#111827', borderBottom: '1px solid rgba(99,130,180,0.12)' }}>
-                        <span style={{ fontSize: '11px', fontFamily: 'monospace', color: '#94a3b8', textTransform: 'uppercase' }}>
-                          {match[1]}
-                        </span>
-                        {msg.role === 'assistant' && (
-                          <button onClick={() => onRunCode(codeString, match[1])} className="code-run-btn">
-                            ▶ Ejecutar
-                          </button>
-                        )}
-                      </div>
-                      <SyntaxHighlighter
-                        style={oneDark}
-                        language={match[1]}
-                        PreTag="div"
-                        customStyle={{ margin: 0, padding: '16px', fontSize: '13px', background: '#0d1117' }}
-                        {...props}
-                      >
-                        {codeString}
-                      </SyntaxHighlighter>
-                    </div>
-                  );
-                }
-                
-                return (
-                  <code style={{ background: 'rgba(59,130,246,0.15)', color: '#93c5fd', padding: '3px 6px', borderRadius: '4px', fontSize: '0.9em' }} {...props}>
-                    {children}
-                  </code>
-                );
+        {(() => {
+          let cleanText = msg.content ? msg.content.trim() : '';
+          
+          // 1. Separar si el modelo escribe ```pythonPegado
+          cleanText = cleanText.replace(/```python(\w+)/g, '```python\n$1');
+          
+          // 2. Si TODO el mensaje está envuelto en ``` (y no es python), lo destruimos
+          if (cleanText.startsWith('```') && cleanText.endsWith('```')) {
+            const firstLineBreak = cleanText.indexOf('\n');
+            if (firstLineBreak !== -1) {
+              const firstLine = cleanText.slice(0, firstLineBreak).toLowerCase();
+              // Si la primera línea no dice "python", quitamos la envoltura
+              if (!firstLine.includes('python')) {
+                cleanText = cleanText.slice(firstLineBreak + 1, -3).trim();
               }
-            }}
-          >
-            {msg.content
-              .replace(/```python(\w+)/g, '```python\n$1')
-              .replace(new RegExp('^`{3}(?:markdown|md)\\s*\\n([\\s\\S]*?)`{3}\\s*$', 'i'), '$1')
             }
-          </ReactMarkdown>
-        </div>
+          }
+
+          return (
+            <div style={{ width: '100%', overflowX: 'auto', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+              <ReactMarkdown
+                remarkPlugins={[remarkGfm]}
+                components={{
+                  // --- CÓDIGO EJECUTABLE ---
+                  code({ node, className, children, ...props }) {
+                    const match = /language-(\w+)/.exec(className || '');
+                    const codeString = String(children).replace(/\n$/, '');
+                    
+                    if (match && match[1] !== 'markdown') {
+                      return (
+                        <div style={{ margin: '14px 0', borderRadius: '8px', overflow: 'hidden', border: '1px solid rgba(99,130,180,0.2)' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 12px', background: '#111827', borderBottom: '1px solid rgba(99,130,180,0.12)' }}>
+                            <span style={{ fontSize: '11px', fontFamily: 'monospace', color: '#94a3b8', textTransform: 'uppercase' }}>
+                              {match[1]}
+                            </span>
+                            {msg.role === 'assistant' && (
+                              <button onClick={() => onRunCode(codeString, match[1])} style={{ background: 'none', border: 'none', color: '#3b82f6', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold' }}>
+                                ▶ Ejecutar
+                              </button>
+                            )}
+                          </div>
+                          <SyntaxHighlighter
+                            style={oneDark} language={match[1]} PreTag="div"
+                            customStyle={{ margin: 0, padding: '16px', fontSize: '13px', background: '#0d1117' }} {...props}
+                          >
+                            {codeString}
+                          </SyntaxHighlighter>
+                        </div>
+                      );
+                    }
+                    
+                    // --- VARIABLES O COMANDOS INLINE ---
+                    return (
+                      <code style={{ background: 'rgba(59,130,246,0.15)', color: '#3b82f6', padding: '2px 6px', borderRadius: '4px', fontWeight: 'bold' }} {...props}>
+                        {children}
+                      </code>
+                    );
+                  },
+                  
+                  // --- ESTILOS DE TEXTO, TÍTULOS Y LISTAS ---
+                  h1(props) { return <h1 style={{ fontSize: '1.6em', fontWeight: 'bold', margin: '18px 0 10px', color: '#ffffff' }} {...props} /> },
+                  h2(props) { return <h2 style={{ fontSize: '1.4em', fontWeight: 'bold', margin: '18px 0 10px', color: '#e2e8f0' }} {...props} /> },
+                  h3(props) { return <h3 style={{ fontSize: '1.2em', fontWeight: 'bold', margin: '16px 0 8px', color: '#cbd5e1' }} {...props} /> },
+                  p(props) { return <p style={{ margin: '0 0 12px', lineHeight: '1.7' }} {...props} /> },
+                  ul(props) { return <ul style={{ paddingLeft: '24px', margin: '12px 0', listStyleType: 'disc' }} {...props} /> },
+                  ol(props) { return <ol style={{ paddingLeft: '24px', margin: '12px 0', listStyleType: 'decimal' }} {...props} /> },
+                  li(props) { return <li style={{ marginBottom: '6px', lineHeight: '1.7' }} {...props} /> },
+                  strong(props) { return <strong style={{ fontWeight: 'bold', color: '#60a5fa' }} {...props} /> },
+                  hr(props) { return <hr style={{ borderColor: 'rgba(99,130,180,0.2)', margin: '20px 0' }} {...props} /> },
+                  
+                  // --- ESTILOS DE TABLAS ---
+                  table(props) { return <div style={{ overflowX: 'auto', margin: '16px 0', border: '1px solid rgba(99,130,180,0.2)', borderRadius: '8px' }}><table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }} {...props} /></div> },
+                  thead(props) { return <thead style={{ background: 'rgba(99,130,180,0.15)' }} {...props} /> },
+                  th(props) { return <th style={{ padding: '12px 16px', borderBottom: '2px solid rgba(99,130,180,0.2)', fontWeight: 'bold', color: '#e2e8f0' }} {...props} /> },
+                  td(props) { return <td style={{ padding: '10px 16px', borderBottom: '1px solid rgba(99,130,180,0.1)', color: '#cbd5e1' }} {...props} /> },
+                }}
+              >
+                {cleanText}
+              </ReactMarkdown>
+            </div>
+          );
+        })()}
       </div>
     </div>
   );

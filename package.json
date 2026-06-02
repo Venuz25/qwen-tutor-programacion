@@ -22,5 +22,9 @@
   "homepage": "https://github.com/Venuz25/qwen-tutor-programacion#readme",
   "devDependencies": {
     "concurrently": "^9.2.1"
+  },
+  "dependencies": {
+    "@tailwindcss/typography": "^0.5.19",
+    "remark-gfm": "^4.0.1"
   }
 }
