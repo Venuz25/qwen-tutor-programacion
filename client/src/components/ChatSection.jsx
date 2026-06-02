@@ -505,80 +505,54 @@ const MessageRow = ({ msg, onRunCode }) => {
         fontSize: 14,
         lineHeight: 1.65,
       }}>
-        <ReactMarkdown
-          remarkPlugins={[remarkGfm]}
-          components={{
-            code({ node, inline, className, children, ...props }) {
-              const match = /language-(\w+)/.exec(className || '');
-              const codeString = String(children).replace(/\n$/, '');
-              if (!inline && match) {
-                return (
-                  <div style={{
-                    margin: '10px 0', borderRadius: 9, overflow: 'hidden',
-                    border: '1px solid rgba(99,130,180,0.18)',
-                  }}>
-                    <div style={{
-                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                      padding: '6px 12px',
-                      background: '#111827',
-                      borderBottom: '1px solid rgba(99,130,180,0.12)',
-                    }}>
-                      <span style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: '#64748b', letterSpacing: '0.04em' }}>
-                        {match[1]}
-                      </span>
-                      {msg.role === 'assistant' && (
-                        <button onClick={() => onRunCode(codeString, match[1])} className="code-run-btn">
-                          ▶ Ejecutar
-                        </button>
-                      )}
+        <div className="prose prose-invert max-w-full break-words overflow-x-auto">
+          <ReactMarkdown
+            remarkPlugins={[remarkGfm]}
+            components={{
+              code({ node, className, children, ...props }) {
+                const match = /language-(\w+)/.exec(className || '');
+                const codeString = String(children).replace(/\n$/, '');
+                
+                if (match && match[1] !== 'markdown') {
+                  return (
+                    <div style={{ margin: '14px 0', borderRadius: '8px', overflow: 'hidden', border: '1px solid rgba(99,130,180,0.2)' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 12px', background: '#111827', borderBottom: '1px solid rgba(99,130,180,0.12)' }}>
+                        <span style={{ fontSize: '11px', fontFamily: 'monospace', color: '#94a3b8', textTransform: 'uppercase' }}>
+                          {match[1]}
+                        </span>
+                        {msg.role === 'assistant' && (
+                          <button onClick={() => onRunCode(codeString, match[1])} className="code-run-btn">
+                            ▶ Ejecutar
+                          </button>
+                        )}
+                      </div>
+                      <SyntaxHighlighter
+                        style={oneDark}
+                        language={match[1]}
+                        PreTag="div"
+                        customStyle={{ margin: 0, padding: '16px', fontSize: '13px', background: '#0d1117' }}
+                        {...props}
+                      >
+                        {codeString}
+                      </SyntaxHighlighter>
                     </div>
-                    <SyntaxHighlighter
-                      style={oneDark}
-                      language={match[1]}
-                      PreTag="div"
-                      customStyle={{
-                        margin: 0, padding: '14px',
-                        fontSize: 12.5,
-                        fontFamily: 'JetBrains Mono, monospace',
-                        background: '#0d1117',
-                        lineHeight: 1.6,
-                      }}
-                      {...props}
-                    >
-                      {codeString}
-                    </SyntaxHighlighter>
-                  </div>
+                  );
+                }
+                
+                return (
+                  <code style={{ background: 'rgba(59,130,246,0.15)', color: '#93c5fd', padding: '3px 6px', borderRadius: '4px', fontSize: '0.9em' }} {...props}>
+                    {children}
+                  </code>
                 );
               }
-              return (
-                <code style={{
-                  background: 'rgba(99,130,180,0.12)',
-                  border: '1px solid rgba(99,130,180,0.18)',
-                  padding: '1px 6px', borderRadius: 4,
-                  fontFamily: 'var(--font-mono)', fontSize: '0.88em',
-                  color: '#93c5fd',
-                }} {...props}>
-                  {children}
-                </code>
-              );
-            },
-            p: ({ children }) => <p style={{ margin: '0 0 8px', lineHeight: 1.65 }}>{children}</p>,
-            ul: ({ children }) => <ul style={{ paddingLeft: 18, margin: '6px 0' }}>{children}</ul>,
-            ol: ({ children }) => <ol style={{ paddingLeft: 18, margin: '6px 0' }}>{children}</ol>,
-            li: ({ children }) => <li style={{ marginBottom: 3, lineHeight: 1.6 }}>{children}</li>,
-            strong: ({ children }) => <strong style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{children}</strong>,
-            blockquote: ({ children }) => (
-              <blockquote style={{
-                borderLeft: '3px solid var(--blue)', paddingLeft: 12,
-                margin: '8px 0', color: 'var(--text-secondary)', fontStyle: 'italic',
-              }}>
-                {children}
-              </blockquote>
-            ),
-          }}
-        >
-          {msg.content.replace(/```python(\w+)/g, '```python\n$1')}
-        </ReactMarkdown>
+            }}
+          >
+            {msg.content
+              .replace(/```python(\w+)/g, '```python\n$1')
+              .replace(new RegExp('^`{3}(?:markdown|md)\\s*\\n([\\s\\S]*?)`{3}\\s*$', 'i'), '$1')
+            }
+          </ReactMarkdown>
+        </div>
       </div>
     </div>
   );
