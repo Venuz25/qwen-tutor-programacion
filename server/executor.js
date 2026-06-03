@@ -1,21 +1,3 @@
-/**
- * executor.js — Ejecutor nativo de código (sin Docker)
- *
- * Usa los runtimes instalados en el sistema directamente:
- *   Python  → python3
- *   JS      → node
- *   C       → gcc  (compila + ejecuta)
- *   C++     → g++  (compila + ejecuta)
- *   Java    → javac + java
- *   PHP     → php
- *
- * Seguridad básica aplicada:
- *   - Timeout configurable por lenguaje (TLE)
- *   - El proceso se mata si supera el límite
- *   - Archivos temporales en /temp, borrados al terminar
- *   - Stdin interactivo via socket.io (igual que antes)
- */
-
 const { spawn } = require('child_process');
 const fs        = require('fs');
 const path      = require('path');
@@ -23,12 +5,6 @@ const path      = require('path');
 const TEMP_DIR = path.join(__dirname, '..', 'temp');
 if (!fs.existsSync(TEMP_DIR)) fs.mkdirSync(TEMP_DIR, { recursive: true });
 
-// ── Configuración por lenguaje ──────────────────────────────────
-//   prepare(file) → devuelve { cmd, args, cleanup }
-//   cmd/args      → cómo ejecutar el binario
-//   compile       → (opcional) paso previo de compilación
-//   timeout       → ms antes de TLE
-// ────────────────────────────────────────────────────────────────
 const LANG_CONFIG = {
   python: {
     ext: 'py',
