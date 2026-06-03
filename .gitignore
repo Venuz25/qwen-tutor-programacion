@@ -10,3 +10,5 @@ __pycache__/
 /client/node_modules/
 
 /ia-model/models/*
+
+temp/*

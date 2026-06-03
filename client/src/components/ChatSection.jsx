@@ -470,6 +470,12 @@ const AttachMenu = ({ isOpen, setIsOpen, menuRef, onFile, onCompiler }) => (
 /* ─── Single message row ─── */
 const MessageRow = ({ msg, onRunCode }) => {
   const isUser = msg.role === 'user';
+
+  // Solo arreglamos el bug del modelo que escribe ```pythonPegado
+  // No tocamos nada más del contenido
+  const cleanContent = (msg.content || '')
+    .replace(/```(\w+)(\w)/g, (_, lang, nextChar) => `\`\`\`${lang}\n${nextChar}`);
+
   return (
     <div
       className="msg-row"
@@ -505,88 +511,102 @@ const MessageRow = ({ msg, onRunCode }) => {
         fontSize: 14,
         lineHeight: 1.65,
       }}>
-        {(() => {
-          let cleanText = msg.content ? msg.content.trim() : '';
-          
-          // 1. Separar si el modelo escribe ```pythonPegado
-          cleanText = cleanText.replace(/```python(\w+)/g, '```python\n$1');
-          
-          // 2. Si TODO el mensaje está envuelto en ``` (y no es python), lo destruimos
-          if (cleanText.startsWith('```') && cleanText.endsWith('```')) {
-            const firstLineBreak = cleanText.indexOf('\n');
-            if (firstLineBreak !== -1) {
-              const firstLine = cleanText.slice(0, firstLineBreak).toLowerCase();
-              // Si la primera línea no dice "python", quitamos la envoltura
-              if (!firstLine.includes('python')) {
-                cleanText = cleanText.slice(firstLineBreak + 1, -3).trim();
-              }
-            }
-          }
+        <ReactMarkdown
+          remarkPlugins={[remarkGfm]}
+          components={{
+            // La clave está aquí: 'inline' viene de react-markdown v7+
+            // En v8+ se detecta por ausencia de '\n' en children y por el contexto
+            code({ node, inline, className, children, ...props }) {
+              const match = /language-(\w+)/.exec(className || '');
+              const codeString = String(children).replace(/\n$/, '');
 
-          return (
-            <div style={{ width: '100%', overflowX: 'auto', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
-              <ReactMarkdown
-                remarkPlugins={[remarkGfm]}
-                components={{
-                  // --- CÓDIGO EJECUTABLE ---
-                  code({ node, className, children, ...props }) {
-                    const match = /language-(\w+)/.exec(className || '');
-                    const codeString = String(children).replace(/\n$/, '');
-                    
-                    if (match && match[1] !== 'markdown') {
-                      return (
-                        <div style={{ margin: '14px 0', borderRadius: '8px', overflow: 'hidden', border: '1px solid rgba(99,130,180,0.2)' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 12px', background: '#111827', borderBottom: '1px solid rgba(99,130,180,0.12)' }}>
-                            <span style={{ fontSize: '11px', fontFamily: 'monospace', color: '#94a3b8', textTransform: 'uppercase' }}>
-                              {match[1]}
-                            </span>
-                            {msg.role === 'assistant' && (
-                              <button onClick={() => onRunCode(codeString, match[1])} style={{ background: 'none', border: 'none', color: '#3b82f6', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold' }}>
-                                ▶ Ejecutar
-                              </button>
-                            )}
-                          </div>
-                          <SyntaxHighlighter
-                            style={oneDark} language={match[1]} PreTag="div"
-                            customStyle={{ margin: 0, padding: '16px', fontSize: '13px', background: '#0d1117' }} {...props}
-                          >
-                            {codeString}
-                          </SyntaxHighlighter>
-                        </div>
-                      );
-                    }
-                    
-                    // --- VARIABLES O COMANDOS INLINE ---
-                    return (
-                      <code style={{ background: 'rgba(59,130,246,0.15)', color: '#3b82f6', padding: '2px 6px', borderRadius: '4px', fontWeight: 'bold' }} {...props}>
-                        {children}
-                      </code>
-                    );
-                  },
-                  
-                  // --- ESTILOS DE TEXTO, TÍTULOS Y LISTAS ---
-                  h1(props) { return <h1 style={{ fontSize: '1.6em', fontWeight: 'bold', margin: '18px 0 10px', color: '#ffffff' }} {...props} /> },
-                  h2(props) { return <h2 style={{ fontSize: '1.4em', fontWeight: 'bold', margin: '18px 0 10px', color: '#e2e8f0' }} {...props} /> },
-                  h3(props) { return <h3 style={{ fontSize: '1.2em', fontWeight: 'bold', margin: '16px 0 8px', color: '#cbd5e1' }} {...props} /> },
-                  p(props) { return <p style={{ margin: '0 0 12px', lineHeight: '1.7' }} {...props} /> },
-                  ul(props) { return <ul style={{ paddingLeft: '24px', margin: '12px 0', listStyleType: 'disc' }} {...props} /> },
-                  ol(props) { return <ol style={{ paddingLeft: '24px', margin: '12px 0', listStyleType: 'decimal' }} {...props} /> },
-                  li(props) { return <li style={{ marginBottom: '6px', lineHeight: '1.7' }} {...props} /> },
-                  strong(props) { return <strong style={{ fontWeight: 'bold', color: '#60a5fa' }} {...props} /> },
-                  hr(props) { return <hr style={{ borderColor: 'rgba(99,130,180,0.2)', margin: '20px 0' }} {...props} /> },
-                  
-                  // --- ESTILOS DE TABLAS ---
-                  table(props) { return <div style={{ overflowX: 'auto', margin: '16px 0', border: '1px solid rgba(99,130,180,0.2)', borderRadius: '8px' }}><table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }} {...props} /></div> },
-                  thead(props) { return <thead style={{ background: 'rgba(99,130,180,0.15)' }} {...props} /> },
-                  th(props) { return <th style={{ padding: '12px 16px', borderBottom: '2px solid rgba(99,130,180,0.2)', fontWeight: 'bold', color: '#e2e8f0' }} {...props} /> },
-                  td(props) { return <td style={{ padding: '10px 16px', borderBottom: '1px solid rgba(99,130,180,0.1)', color: '#cbd5e1' }} {...props} /> },
-                }}
-              >
-                {cleanText}
-              </ReactMarkdown>
-            </div>
-          );
-        })()}
+              // Es un bloque de código (tiene lenguaje o tiene saltos de línea)
+              if (!inline && (match || codeString.includes('\n'))) {
+                const lang = match ? match[1] : 'text';
+                return (
+                  <div style={{
+                    margin: '10px 0', borderRadius: 9, overflow: 'hidden',
+                    border: '1px solid rgba(99,130,180,0.18)',
+                  }}>
+                    <div style={{
+                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                      padding: '6px 12px',
+                      background: '#111827',
+                      borderBottom: '1px solid rgba(99,130,180,0.12)',
+                    }}>
+                      <span style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: '#64748b', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+                        {lang}
+                      </span>
+                      {msg.role === 'assistant' && match && (
+                        <button onClick={() => onRunCode(codeString, lang)} className="code-run-btn">
+                          ▶ Ejecutar
+                        </button>
+                      )}
+                    </div>
+                    <SyntaxHighlighter
+                      style={oneDark}
+                      language={lang}
+                      PreTag="div"
+                      customStyle={{
+                        margin: 0, padding: '14px',
+                        fontSize: 12.5,
+                        fontFamily: 'JetBrains Mono, monospace',
+                        background: '#0d1117',
+                        lineHeight: 1.6,
+                      }}
+                      {...props}
+                    >
+                      {codeString}
+                    </SyntaxHighlighter>
+                  </div>
+                );
+              }
+
+              // Es código inline (backtick simple: `variable`)
+              return (
+                <code style={{
+                  background: 'rgba(99,130,180,0.12)',
+                  border: '1px solid rgba(99,130,180,0.18)',
+                  padding: '1px 6px', borderRadius: 4,
+                  fontFamily: 'var(--font-mono)', fontSize: '0.88em',
+                  color: '#93c5fd',
+                }} {...props}>
+                  {children}
+                </code>
+              );
+            },
+            p: ({ children }) => <p style={{ margin: '0 0 8px', lineHeight: 1.65 }}>{children}</p>,
+            ul: ({ children }) => <ul style={{ paddingLeft: 18, margin: '6px 0', listStyleType: 'disc' }}>{children}</ul>,
+            ol: ({ children }) => <ol style={{ paddingLeft: 18, margin: '6px 0', listStyleType: 'decimal' }}>{children}</ol>,
+            li: ({ children }) => <li style={{ marginBottom: 3, lineHeight: 1.6 }}>{children}</li>,
+            strong: ({ children }) => <strong style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{children}</strong>,
+            h1: ({ children }) => <h1 style={{ fontSize: '1.4em', fontWeight: 700, margin: '12px 0 8px', color: 'var(--text-primary)' }}>{children}</h1>,
+            h2: ({ children }) => <h2 style={{ fontSize: '1.2em', fontWeight: 600, margin: '10px 0 6px', color: 'var(--text-primary)' }}>{children}</h2>,
+            h3: ({ children }) => <h3 style={{ fontSize: '1.05em', fontWeight: 600, margin: '8px 0 4px', color: 'var(--text-secondary)' }}>{children}</h3>,
+            blockquote: ({ children }) => (
+              <blockquote style={{
+                borderLeft: '3px solid var(--blue)', paddingLeft: 12,
+                margin: '8px 0', color: 'var(--text-secondary)', fontStyle: 'italic',
+              }}>
+                {children}
+              </blockquote>
+            ),
+            table: ({ children }) => (
+              <div style={{ overflowX: 'auto', margin: '10px 0' }}>
+                <table style={{ borderCollapse: 'collapse', width: '100%', fontSize: 13 }}>{children}</table>
+              </div>
+            ),
+            th: ({ children }) => (
+              <th style={{ padding: '6px 12px', background: 'rgba(99,130,180,0.15)', border: '1px solid rgba(99,130,180,0.2)', textAlign: 'left', fontWeight: 600 }}>{children}</th>
+            ),
+            td: ({ children }) => (
+              <td style={{ padding: '6px 12px', border: '1px solid rgba(99,130,180,0.12)' }}>{children}</td>
+            ),
+            hr: () => <hr style={{ border: 'none', borderTop: '1px solid var(--border)', margin: '12px 0' }} />,
+          }}
+        >
+          {cleanContent}
+        </ReactMarkdown>
       </div>
     </div>
   );
