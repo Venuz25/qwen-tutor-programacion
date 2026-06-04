@@ -32,12 +32,6 @@ const CodeCompiler = ({
   }, [output]);
 
   useEffect(() => {
-    if (runTrigger > 0) {
-      handleExecute();
-    }
-  }, [runTrigger]);
-
-  useEffect(() => {
     socketRef.current = io('http://localhost:5000');
 
     socketRef.current.on('terminal_output',   d => setOutput(p => p + d));
@@ -49,6 +43,12 @@ const CodeCompiler = ({
 
     return () => socketRef.current.disconnect();
   }, []);
+
+  useEffect(() => {
+    if (runTrigger > 0) {
+      handleExecute();
+    }
+  }, [runTrigger]);
 
   useEffect(() => {
     if (!isDraggingDivider) return;
@@ -66,6 +66,8 @@ const CodeCompiler = ({
   }, [isDraggingDivider]);
 
   const handleExecute = () => {
+    if (!socketRef.current) return;
+
     setOutput('');
     setIsCompiling(true);
     socketRef.current.emit('start_execution', { code, language });

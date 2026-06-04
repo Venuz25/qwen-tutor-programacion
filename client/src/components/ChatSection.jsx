@@ -6,11 +6,10 @@ import remarkGfm from 'remark-gfm';
 import { Plus, FileText, Code, X, Paperclip, StopCircle, Send, Zap } from 'lucide-react';
 
 const BADGE_MAP = {
-  DEBUGGING:        { label: 'Debugging',    cls: 'badge-red' },
-  COMPETITIVO:      { label: 'Competitivo',  cls: 'badge-amber' },
-  NIVEL_CERO:       { label: 'Nivel básico', cls: 'badge-blue' },
-  FRUSTRACION:      { label: 'Modo apoyo',   cls: 'badge-blue' },
-  PETICION_DIRECTA: { label: 'Guiado',       cls: 'badge-emerald' },
+  TUTOR_BASE:  { label: 'Modo Tutor',       cls: 'badge-blue' },
+  RESTRINGIDO: { label: 'Práctica Guiada',  cls: 'badge-emerald' },
+  DEBUGGING:   { label: 'Debugging',        cls: 'badge-red' },
+  COMPETITIVO: { label: 'Competitivo',      cls: 'badge-amber' },
 };
 
 const SUGGESTIONS = [
@@ -58,8 +57,9 @@ const ChatSection = ({
       setIsThinking(false);
       setAttachment(null);
       setIsMenuOpen(false);
-      setLastState(null);
-      currentChatRef.current = activeChatId;
+      
+      const savedState = localStorage.getItem(`chat_state_${activeChatId}`);
+      setLastState(savedState || null);
 
       if (activeChatId) {
         fetch(`http://localhost:5000/api/chats/${activeChatId}`)
@@ -121,12 +121,16 @@ const ChatSection = ({
         body: JSON.stringify({
           role: 'user', content: finalContent,
           compilerCode, compilerLanguage, compilerOutput, isCompetitiveMode,
+          estado_anterior: lastState || 'TUTOR_BASE'
         }),
         signal: abortControllerRef.current.signal,
       });
       let botReply = await res.json();
 
-      if (botReply.estado_detectado) setLastState(botReply.estado_detectado);
+      if (botReply.estado_detectado) {
+        setLastState(botReply.estado_detectado);
+        localStorage.setItem(`chat_state_${activeChatId || newChat._id}`, botReply.estado_detectado);
+      }
 
       const plantillaRegex = /<plantilla lenguaje="([^"]+)">([\s\S]*?)<\/plantilla>/i;
       const match = botReply.content.match(plantillaRegex);
@@ -314,13 +318,17 @@ const ChatSection = ({
       {/* ── Top bar (state badge) ── */}
       {stateBadge && (
         <div style={{
-          display: 'flex', alignItems: 'center', justifyContent: 'flex-end',
-          padding: '8px 16px', borderBottom: '1px solid var(--border)',
-          background: 'var(--bg-surface)', flexShrink: 0,
+          display: 'flex', 
+          alignItems: 'center', 
+          justifyContent: 'flex-start',
+          padding: '8px 16px', 
+          borderBottom: '1px solid var(--border)',
+          background: 'var(--bg-surface)', 
+          flexShrink: 0,
           animation: 'fade-in 0.2s ease',
         }}>
-          <span className={`badge ${stateBadge.cls}`}>
-            <span style={{ width: 5, height: 5, borderRadius: '50%', background: 'currentColor', display: 'inline-block' }} />
+          <span className={`badge ${stateBadge.cls}`} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'currentColor', display: 'inline-block' }} />
             {stateBadge.label}
           </span>
         </div>

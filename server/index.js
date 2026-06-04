@@ -91,35 +91,30 @@ app.delete('/api/chats/:id', (req, res) => {
 
 /** POST /api/chats/:id/messages — enviar mensaje y obtener respuesta del LLM */
 app.post('/api/chats/:id/messages', async (req, res) => {
-  const { role, content, isCompetitiveMode } = req.body;
+  const { role, content, isCompetitiveMode, estado_anterior } = req.body;
   const chatId = req.params.id;
 
   try {
-    // 1. Guardar mensaje del usuario
     const { tituloActualizado } = addMessage(chatId, role, content);
-
-    // 2. Obtener últimos mensajes para contexto
     const messagesLLM = getRecentMessages(chatId, 4);
 
-    console.log(`\n[INFO] Chat ${String(chatId).slice(-4)} | Usuario: ${req.currentUser.username}`);
-    console.log(`[INFO] Modo Competitivo: ${isCompetitiveMode ? 'ON' : 'OFF'}`);
+    console.log(`\n[INFO] Chat ${String(chatId).slice(-4)}`);
+    console.log(`[INFO] Estado anterior: ${estado_anterior || 'TUTOR_BASE'}`);
 
     const t0 = Date.now();
-
-    // 3. Llamar al modelo de IA
     const IA_ENDPOINT = process.env.IA_URL || 'http://127.0.0.1:8000/generate';
 
     const iaRes = await axios.post(IA_ENDPOINT, {
       messages: messagesLLM,
-      is_competitive: isCompetitiveMode,
+      is_competitive_locked: isCompetitiveMode || false,
+      estado_anterior: estado_anterior || 'TUTOR_BASE'
     }, { timeout: 0 });
 
     const botContent = iaRes.data.response;
     const estadoDetectado = iaRes.data.estado_detectado;
 
-    console.log(`[OK] LLM respondió en ${((Date.now() - t0) / 1000).toFixed(2)}s`);
+    console.log(`[OK] LLM respondió en ${((Date.now() - t0) / 1000).toFixed(2)}s | Nuevo Estado: ${estadoDetectado}`);
 
-    // 4. Guardar respuesta del asistente
     addMessage(chatId, 'assistant', botContent);
 
     res.json({
