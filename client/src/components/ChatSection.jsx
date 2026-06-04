@@ -269,14 +269,28 @@ const ChatSection = ({
 
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
             <AttachMenu isOpen={isMenuOpen} setIsOpen={setIsMenuOpen} menuRef={menuRef} onFile={handleFileUpload} onCompiler={handleAttachCompiler} />
-            <input
+            <textarea
               ref={inputRef}
               value={welcomeInput}
-              onChange={e => setWelcomeInput(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && startFirstChat()}
+              onChange={e => {
+                setWelcomeInput(e.target.value);
+                e.target.style.height = 'auto';
+                e.target.style.height = `${e.target.scrollHeight}px`;
+              }}
+              onKeyDown={e => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  startFirstChat();
+                }
+              }}
               placeholder="Ej: Tengo un error en mi script de Python..."
-              className="input-field"
-              style={{ flex: 1 }}
+              className="input-field custom-scrollbar"
+              rows={1}
+              style={{
+                flex: 1, resize: 'none', overflowY: 'auto',
+                minHeight: '42px', maxHeight: '150px',
+                paddingTop: '10px', paddingBottom: '10px'
+              }}
             />
             <button onClick={() => startFirstChat()} className="btn-base btn-primary" style={{ flexShrink: 0 }}>
               <Zap size={14} />
@@ -381,14 +395,28 @@ const ChatSection = ({
 
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
             <AttachMenu isOpen={isMenuOpen} setIsOpen={setIsMenuOpen} menuRef={menuRef} onFile={handleFileUpload} onCompiler={handleAttachCompiler} />
-            <input
+            <textarea
               value={input}
-              onChange={e => setInput(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && !isThinking && sendMessage()}
+              onChange={e => {
+                setInput(e.target.value);
+                e.target.style.height = 'auto';
+                e.target.style.height = `${e.target.scrollHeight}px`;
+              }}
+              onKeyDown={e => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  if (!isThinking && (input.trim() || attachment)) sendMessage();
+                }
+              }}
               disabled={isThinking}
               placeholder="Escribe tu mensaje..."
-              className="input-field"
-              style={{ flex: 1 }}
+              className="input-field custom-scrollbar"
+              rows={1}
+              style={{
+                flex: 1, resize: 'none', overflowY: 'auto',
+                minHeight: '42px', maxHeight: '150px',
+                paddingTop: '10px', paddingBottom: '10px'
+              }}
             />
             <button
               onClick={() => sendMessage()}
@@ -471,21 +499,13 @@ const AttachMenu = ({ isOpen, setIsOpen, menuRef, onFile, onCompiler }) => (
 const MessageRow = ({ msg, onRunCode }) => {
   const isUser = msg.role === 'user';
 
-  // Solo arreglamos el bug del modelo que escribe ```pythonPegado
-  // No tocamos nada más del contenido
-  const cleanContent = (msg.content || '')
-    .replace(/```(\w+)(\w)/g, (_, lang, nextChar) => `\`\`\`${lang}\n${nextChar}`);
+  let cleanContent = (msg.content || '').trim();
+  if (cleanContent.toLowerCase().startsWith('```markdown') && cleanContent.endsWith('```')) {
+    cleanContent = cleanContent.substring(11, cleanContent.length - 3).trim();
+  }
 
   return (
-    <div
-      className="msg-row"
-      style={{
-        display: 'flex',
-        justifyContent: isUser ? 'flex-end' : 'flex-start',
-        alignItems: 'flex-end',
-        gap: 8,
-      }}
-    >
+    <div className="msg-row" style={{display: 'flex', justifyContent: isUser ? 'flex-end' : 'flex-start', alignItems: 'flex-end', gap: 8,}}>
       {!isUser && (
         <div style={{
           width: 30, height: 30, borderRadius: '50%', flexShrink: 0,
@@ -514,30 +534,21 @@ const MessageRow = ({ msg, onRunCode }) => {
         <ReactMarkdown
           remarkPlugins={[remarkGfm]}
           components={{
-            // La clave está aquí: 'inline' viene de react-markdown v7+
-            // En v8+ se detecta por ausencia de '\n' en children y por el contexto
             code({ node, inline, className, children, ...props }) {
               const match = /language-(\w+)/.exec(className || '');
               const codeString = String(children).replace(/\n$/, '');
 
-              // Es un bloque de código (tiene lenguaje o tiene saltos de línea)
+              const lang = match ? match[1].toLowerCase() : 'text';
+              const isExecutable = ['python', 'javascript', 'js', 'cpp', 'c', 'c++', 'java', 'php'].includes(lang);
+
               if (!inline && (match || codeString.includes('\n'))) {
-                const lang = match ? match[1] : 'text';
                 return (
-                  <div style={{
-                    margin: '10px 0', borderRadius: 9, overflow: 'hidden',
-                    border: '1px solid rgba(99,130,180,0.18)',
-                  }}>
-                    <div style={{
-                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                      padding: '6px 12px',
-                      background: '#111827',
-                      borderBottom: '1px solid rgba(99,130,180,0.12)',
-                    }}>
-                      <span style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: '#64748b', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+                  <div style={{ margin: '10px 0', borderRadius: 9, overflow: 'hidden', border: '1px solid rgba(99,130,180,0.18)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 12px', background: '#111827', borderBottom: '1px solid rgba(99,130,180,0.12)' }}>
+                      <span style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: '#64748b', textTransform: 'uppercase' }}>
                         {lang}
                       </span>
-                      {msg.role === 'assistant' && match && (
+                      {msg.role === 'assistant' && isExecutable && (
                         <button onClick={() => onRunCode(codeString, lang)} className="code-run-btn">
                           ▶ Ejecutar
                         </button>
@@ -562,7 +573,6 @@ const MessageRow = ({ msg, onRunCode }) => {
                 );
               }
 
-              // Es código inline (backtick simple: `variable`)
               return (
                 <code style={{
                   background: 'rgba(99,130,180,0.12)',

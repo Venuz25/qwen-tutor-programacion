@@ -26,6 +26,7 @@ function App() {
   const [compilerLanguage, setCompilerLanguage] = useState('python');
   const [compilerCode, setCompilerCode]         = useState(HELLO_WORLD.python);
   const [compilerOutput, setCompilerOutput]     = useState('');
+  const [compilerRunTrigger, setCompilerRunTrigger] = useState(0);
 
   const fetchChats = async () => {
     try {
@@ -76,6 +77,10 @@ function App() {
     setCompilerCode(code);
     setCompilerLanguage(n);
     setIsCompilerOpen(true);
+    
+    setTimeout(() => {
+      setCompilerRunTrigger(prev => prev + 1);
+    }, 50);
   };
 
   /* ── Loading screen ── */
@@ -180,6 +185,7 @@ function App() {
               code={compilerCode}             setCode={setCompilerCode}
               language={compilerLanguage}     onLanguageChange={handleCompilerLanguageChange}
               output={compilerOutput}         setOutput={setCompilerOutput}
+              runTrigger={compilerRunTrigger}
             />
           )}
         </div>

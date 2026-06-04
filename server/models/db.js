@@ -1,9 +1,6 @@
 /**
  * db.js — Capa de base de datos con better-sqlite3
  *
- * Reemplaza completamente a Mongoose + MongoDB.
- * Un solo archivo .db sin servidor, sin Docker.
- *
  * Tablas:
  *   users    — multi-usuario básico (id, username, created_at)
  *   chats    — conversaciones (id, user_id, title, created_at)
@@ -98,7 +95,7 @@ function createChat(userId = 1) {
   // Mensaje inicial del tutor
   db.prepare(`
     INSERT INTO messages (chat_id, role, content)
-    VALUES (?, 'assistant', '¡Hola! Soy tu tutor socrático. ¿En qué código estás trabajando hoy?')
+    VALUES (?, 'assistant', '¡Hola! Soy tu tutor de programación. ¿En qué código estás trabajando hoy?')
   `).run(lastInsertRowid);
 
   return findChatById(lastInsertRowid);

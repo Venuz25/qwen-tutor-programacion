@@ -81,8 +81,8 @@ const Sidebar = ({
               </svg>
             </div>
             <div>
-              <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', lineHeight: 1.2 }}>Tutor IA</div>
-              <div style={{ fontSize: 11, color: 'var(--text-muted)', letterSpacing: '0.02em' }}>modo socrático</div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', lineHeight: 1.2 }}>TutorByte</div>
+              <div style={{ fontSize: 11, color: 'var(--text-muted)', letterSpacing: '0.02em' }}>Tu tutor de programación</div>
             </div>
           </div>
         )}

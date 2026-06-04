@@ -140,7 +140,7 @@ app.post('/api/chats/:id/messages', async (req, res) => {
 });
 
 // ────────────────────────────────────────────────────────────────
-//  SOCKET.IO — Compilador interactivo (sin Docker)
+//  SOCKET.IO — Compilador interactivo
 // ────────────────────────────────────────────────────────────────
 io.on('connection', (socket) => {
   console.log(`⚡ Socket conectado: ${socket.id}`);
@@ -172,5 +172,5 @@ const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => {
   console.log(`\n🚀 Servidor listo en http://localhost:${PORT}`);
   console.log(`📦 Base de datos: SQLite (tutor.db)`);
-  console.log(`🔧 Compilador: procesos nativos (sin Docker)\n`);
+  console.log(`🔧 Compilador: procesos nativos\n`);
 });

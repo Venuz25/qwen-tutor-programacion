@@ -43,16 +43,20 @@ const LANG_CONFIG = {
 };
 
 // ── Limpieza de archivos temporales ──────────────────────────────
-function cleanup(...files) {
-  for (const f of files) {
-    try { if (f && fs.existsSync(f)) fs.unlinkSync(f); } catch (_) {}
+function cleanupDir(dirPath) {
+  try {
+    if (fs.existsSync(dirPath)) {
+      fs.rmSync(dirPath, { recursive: true, force: true });
+    }
+  } catch (err) {
+    console.error(`[Aviso] No se pudo limpiar la carpeta temporal: ${dirPath}`, err);
   }
 }
 
 // ── Compilar (solo lenguajes compilados) ─────────────────────────
-function compileAsync(cmd, args) {
+function compileAsync(cmd, args, cwd) {
   return new Promise((resolve, reject) => {
-    const proc = spawn(cmd, args);
+    const proc = spawn(cmd, args, { cwd });
     let stderr = '';
     proc.stderr.on('data', d => (stderr += d.toString()));
     proc.on('close', code => {
@@ -63,17 +67,9 @@ function compileAsync(cmd, args) {
   });
 }
 
-// ── Registro de procesos activos (para poder matarlos) ───────────
-const activeProcesses = new Map();  // socketId → childProcess
+// ── Registro de procesos activos ───────────
+const activeProcesses = new Map();
 
-/**
- * Inicia la ejecución de código para un socket dado.
- *
- * @param {string}   socketId  - ID del socket del cliente
- * @param {object}   socket    - instancia socket.io del cliente
- * @param {string}   code      - código fuente
- * @param {string}   language  - lenguaje (python, javascript, c, cpp, java, php)
- */
 async function startExecution(socketId, socket, code, language) {
   const config = LANG_CONFIG[language];
   if (!config) {
@@ -81,50 +77,48 @@ async function startExecution(socketId, socket, code, language) {
     return;
   }
 
-  // ── Nombres de archivo únicos por ejecución ──
-  const ts      = Date.now();
-  const srcName = language === 'java' ? 'Main.java' : `script_${ts}.${config.ext}`;
-  const srcPath = path.join(TEMP_DIR, srcName);
-  const outPath = path.join(TEMP_DIR, `out_${ts}`);   // binario compilado (C/C++)
+  const ts = Date.now();
+  const execDir = path.join(TEMP_DIR, `exec_${ts}_${socketId}`);
+  fs.mkdirSync(execDir, { recursive: true });
+
+  const srcName = language === 'java' ? 'Main.java' : `script.${config.ext}`;
+  const srcPath = path.join(execDir, srcName);
+  const outPath = path.join(execDir, 'out_bin');
 
   fs.writeFileSync(srcPath, code, 'utf8');
 
-  // ── Paso 1: compilar si es necesario ──
   if (config.compile) {
     try {
       const { cmd, args } = config.compile(srcPath, outPath);
       socket.emit('terminal_output', `[Compilando ${language.toUpperCase()}...]\n`);
-      await compileAsync(cmd, args);
+      await compileAsync(cmd, args, execDir);
       socket.emit('terminal_output', `[Compilación exitosa]\n\n`);
     } catch (err) {
       socket.emit('terminal_error', `\n[Error de compilación]\n${err.message}\n`);
       socket.emit('execution_finished', '');
-      cleanup(srcPath, outPath);
+      cleanupDir(execDir);
       return;
     }
   }
 
-  // ── Paso 2: ejecutar ──
-  const { cmd, args } = config.run(srcPath, outPath, TEMP_DIR);
+  const { cmd, args } = config.run(srcPath, outPath, execDir);
 
   let proc;
   try {
-    proc = spawn(cmd, args, { cwd: TEMP_DIR });
+    proc = spawn(cmd, args, { cwd: execDir });
   } catch (err) {
     socket.emit('terminal_error', `No se pudo iniciar '${cmd}'. ¿Está instalado?\n`);
     socket.emit('execution_finished', '');
-    cleanup(srcPath, outPath);
+    cleanupDir(execDir);
     return;
   }
 
-  activeProcesses.set(socketId, proc);
+  activeProcesses.set(socketId, { proc, dir: execDir });
 
-  // ── TLE watchdog ──
   const tle = setTimeout(() => {
     if (activeProcesses.has(socketId)) {
       socket.emit('terminal_error',
-        `\n⏱ [TLE] El programa superó ${config.timeout / 1000}s.\n` +
-        `Revisa si hay un bucle infinito o un algoritmo muy lento.\n`
+        `\n⏱ [TLE] El programa superó ${config.timeout / 1000}s.\nRevisa si hay un bucle infinito.\n`
       );
       proc.kill('SIGKILL');
     }
@@ -142,10 +136,7 @@ async function startExecution(socketId, socket, code, language) {
       : `\n[✗ Programa finalizado con código ${code}]\n`;
     socket.emit('execution_finished', msg);
 
-    // Limpiar archivos temporales
-    cleanup(srcPath, outPath);
-    // Para Java: limpiar el .class generado
-    if (language === 'java') cleanup(path.join(TEMP_DIR, 'Main.class'));
+    cleanupDir(execDir);
   });
 
   proc.on('error', err => {
@@ -153,23 +144,24 @@ async function startExecution(socketId, socket, code, language) {
     activeProcesses.delete(socketId);
     socket.emit('terminal_error', `\n[Error al ejecutar]: ${err.message}\n`);
     socket.emit('execution_finished', '');
-    cleanup(srcPath, outPath);
+    cleanupDir(execDir);
   });
+}
+
+/** Mata el proceso activo del socket y limpia su carpeta */
+function killProcess(socketId) {
+  const session = activeProcesses.get(socketId);
+  if (session) {
+    session.proc.kill('SIGKILL');
+    activeProcesses.delete(socketId);
+    cleanupDir(session.dir);
+  }
 }
 
 /** Envía input al proceso activo del socket */
 function sendInput(socketId, input) {
   const proc = activeProcesses.get(socketId);
   if (proc) proc.stdin.write(input + '\n');
-}
-
-/** Mata el proceso activo del socket */
-function killProcess(socketId) {
-  const proc = activeProcesses.get(socketId);
-  if (proc) {
-    proc.kill('SIGKILL');
-    activeProcesses.delete(socketId);
-  }
 }
 
 module.exports = { startExecution, sendInput, killProcess };

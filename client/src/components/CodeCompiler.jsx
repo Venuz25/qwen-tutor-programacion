@@ -13,7 +13,7 @@ const LANGUAGES = [
 ];
 
 const CodeCompiler = ({
-  onClose, code, setCode, language, onLanguageChange, output, setOutput
+  onClose, code, setCode, language, onLanguageChange, output, setOutput, runTrigger
 }) => {
   const [inputValue, setInputValue]   = useState('');
   const [isCompiling, setIsCompiling] = useState(false);
@@ -32,6 +32,12 @@ const CodeCompiler = ({
   }, [output]);
 
   useEffect(() => {
+    if (runTrigger > 0) {
+      handleExecute();
+    }
+  }, [runTrigger]);
+
+  useEffect(() => {
     socketRef.current = io('http://localhost:5000');
 
     socketRef.current.on('terminal_output',   d => setOutput(p => p + d));
@@ -44,7 +50,6 @@ const CodeCompiler = ({
     return () => socketRef.current.disconnect();
   }, []);
 
-  // Resizable divider
   useEffect(() => {
     if (!isDraggingDivider) return;
     const onMove = e => {
