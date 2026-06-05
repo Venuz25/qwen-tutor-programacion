@@ -42,7 +42,6 @@ const ChatSection = ({
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isThinking]);
 
-  // Close menu on outside click
   useEffect(() => {
     const handler = e => {
       if (menuRef.current && !menuRef.current.contains(e.target)) setIsMenuOpen(false);
@@ -71,6 +70,22 @@ const ChatSection = ({
       }
     }
   }, [activeChatId]);
+
+  useEffect(() => {
+    if (!socketRef.current) return;
+
+    const handleAnimation = (gifUrl) => {
+      setMessages(prev => [...prev, {
+        role: 'assistant',
+        content: `**¡Visualización generada!**\n![Algoritmo](http://localhost:5000${gifUrl})`
+      }]);
+    };
+    socketRef.current.on('animation_ready', handleAnimation);
+
+    return () => {
+      socketRef.current.off('animation_ready', handleAnimation);
+    };
+  }, []);
 
   const handleFileUpload = e => {
     const file = e.target.files[0];

@@ -4,7 +4,6 @@ const { Server } = require('socket.io');
 const cors     = require('cors');
 require('dotenv').config();
 
-// ── Nuestra DB y ejecutor propios ──
 const {
   findAllChats, findChatById, createChat,
   updateChatTitle, deleteChat,
@@ -13,29 +12,19 @@ const {
 } = require('./models/db');
 
 const { startExecution, sendInput, killProcess } = require('./executor');
-
 const axios = require('axios');
-
 const app    = express();
 const server = http.createServer(app);
 const io     = new Server(server, { cors: { origin: '*' } });
 
+app.use('/temp', express.static(path.join(__dirname, 'temp')));
 app.use(cors());
 app.use(express.json());
-
-// ────────────────────────────────────────────────────────────────
-//  MIDDLEWARE — resuelve usuario actual
-//  Acepta: header X-User: "ana" | query ?user=ana | default "default"
-// ────────────────────────────────────────────────────────────────
 app.use((req, _res, next) => {
   const username = req.headers['x-user'] || req.query.user || 'default';
   req.currentUser = findOrCreateUser(username);
   next();
 });
-
-// ────────────────────────────────────────────────────────────────
-//  RUTAS — CHATS
-// ────────────────────────────────────────────────────────────────
 
 /** GET /api/chats — lista de chats del usuario */
 app.get('/api/chats', (req, res) => {

@@ -71,6 +71,7 @@ function compileAsync(cmd, args, cwd) {
 const activeProcesses = new Map();
 
 async function startExecution(socketId, socket, code, language) {
+  // Ejecución de código: crea carpeta temporal, guarda el código, compila (si aplica) y ejecuta
   const config = LANG_CONFIG[language];
   if (!config) {
     socket.emit('terminal_error', `Lenguaje '${language}' no soportado.\n`);
@@ -127,7 +128,19 @@ async function startExecution(socketId, socket, code, language) {
   proc.stdout.on('data', d => socket.emit('terminal_output', d.toString()));
   proc.stderr.on('data', d => socket.emit('terminal_error',  d.toString()));
 
-  proc.on('close', code => {
+  proc.on('close', async (code) => {
+    // Si el programa generó frames, crea un GIF animado
+    const framesPath = path.join(execDir, 'frames');
+    const gifPath = path.join(execDir, 'animation.gif');
+    
+    if (fs.existsSync(framesPath)) {
+        try {
+            execSync(`ffmpeg -y -framerate 5 -i ${framesPath}/frame_%04d.png ${gifPath}`);
+            socket.emit('animation_ready', `/temp/${path.basename(execDir)}/animation.gif`);
+        } catch (e) { console.error("Error generando GIF:", e); }
+    }
+
+    // Limpieza y mensaje final de la ejecución
     clearTimeout(tle);
     activeProcesses.delete(socketId);
 
@@ -146,6 +159,13 @@ async function startExecution(socketId, socket, code, language) {
     socket.emit('execution_finished', '');
     cleanupDir(execDir);
   });
+
+  // Ejecicón de vizualizador de algoritmos
+  const vizSrc = path.join(__dirname, 'lib', 'visualizer.py');
+  const vizDest = path.join(execDir, 'visualizer.py');
+  if (fs.existsSync(vizSrc)) {
+      fs.copyFileSync(vizSrc, vizDest);
+  }
 }
 
 /** Mata el proceso activo del socket y limpia su carpeta */
