@@ -4,6 +4,7 @@ import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import remarkGfm from 'remark-gfm';
 import { Plus, FileText, Code, X, Paperclip, StopCircle, Send, Zap } from 'lucide-react';
+import { io } from 'socket.io-client';
 
 const BADGE_MAP = {
   TUTOR_BASE:  { label: 'Modo Tutor',       cls: 'badge-blue' },
@@ -37,6 +38,7 @@ const ChatSection = ({
   const currentChatRef     = useRef(null);
   const inputRef           = useRef(null);
   const menuRef            = useRef(null);
+  const socketRef          = useRef(null);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
