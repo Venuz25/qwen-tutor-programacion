@@ -11,6 +11,7 @@ const BADGE_MAP = {
   RESTRINGIDO: { label: 'Práctica Guiada',  cls: 'badge-emerald' },
   DEBUGGING:   { label: 'Debugging',        cls: 'badge-red' },
   COMPETITIVO: { label: 'Competitivo',      cls: 'badge-amber' },
+  REVISION:    { label: 'Revisión de Código', cls: 'badge-violet' },
 };
 
 const SUGGESTIONS = [
@@ -543,8 +544,10 @@ const MessageRow = ({ msg, onRunCode }) => {
           </svg>
         </div>
       )}
-
-      <div style={{
+      
+      <div 
+      className={msg.role === 'user' ? "whitespace-pre-wrap" : ""}
+      style={{
         maxWidth: '78%',
         background: isUser ? '#1d4ed8' : 'var(--bg-card)',
         border: `1px solid ${isUser ? 'rgba(59,130,246,0.3)' : 'var(--border)'}`,
