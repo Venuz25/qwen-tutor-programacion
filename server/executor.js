@@ -87,12 +87,11 @@ async function startExecution(socketId, socket, code, language) {
 
   fs.writeFileSync(srcPath, code, 'utf8');
 
-  if (language === 'python' && code.includes('visualizer')) {
-      const vizSrc = path.join(__dirname, 'lib', 'visualizer.py');
-      const vizDest = path.join(execDir, 'visualizer.py');
-      if (fs.existsSync(vizSrc)) {
-          fs.copyFileSync(vizSrc, vizDest);
-      }
+  if (language === 'python') {
+    const vizSrc = path.join(__dirname, 'lib', 'visualizer.py');
+    if (fs.existsSync(vizSrc)) {
+      fs.copyFileSync(vizSrc, path.join(execDir, 'visualizer.py'));
+    }
   }
 
   if (config.compile) {

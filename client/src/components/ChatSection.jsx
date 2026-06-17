@@ -75,19 +75,16 @@ const ChatSection = ({
   }, [activeChatId]);
 
   useEffect(() => {
-    if (!socketRef.current) return;
+    socketRef.current = io('http://localhost:5000');
 
-    const handleAnimation = (gifUrl) => {
+    socketRef.current.on('animation_ready', (gifUrl) => {
       setMessages(prev => [...prev, {
         role: 'assistant',
-        content: `**¡Visualización generada!**\n![Algoritmo](http://localhost:5000${gifUrl})`
+        content: `**Visualización generada** \n\n![Animación](http://localhost:5000${gifUrl})`
       }]);
-    };
-    socketRef.current.on('animation_ready', handleAnimation);
+    });
 
-    return () => {
-      socketRef.current.off('animation_ready', handleAnimation);
-    };
+    return () => socketRef.current.disconnect();
   }, []);
 
   const handleFileUpload = e => {
