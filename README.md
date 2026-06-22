@@ -82,7 +82,7 @@ Una vez iniciados los servicios, acceda a la aplicación a través de la URL del
 
 ```text
 qwen-tutor-programacion/
-├── client/                 # Frontend (React, Vite, Tailwind CSS)
+├── frontend/                 # Frontend (React, Vite, Tailwind CSS)
 │   ├── public/
 │   ├── src/
 │   │   ├── components/
@@ -91,7 +91,7 @@ qwen-tutor-programacion/
 │   ├── index.html
 │   └── package.json
 │
-├── server/                 # Backend (Node.js, Express, SQLite)
+├── backend/                 # Backend (Node.js, Express, SQLite)
 │   ├── temp/               # Archivos temporales del compilador
 │   ├── lib/
 │   │   └── visualizer.py   # Script para visualización de algoritmos
