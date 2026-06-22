@@ -15,6 +15,9 @@ const HELLO_WORLD = {
 };
 
 function App() {
+  const [username, setUsername] = useState(localStorage.getItem('tutor_username') || '');
+  const [loginInput, setLoginInput] = useState('');
+
   const [isCompetitiveMode, setIsCompetitiveMode] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen]         = useState(true);
   const [isCompilerOpen, setIsCompilerOpen]       = useState(false);
@@ -28,7 +31,14 @@ function App() {
   const [compilerOutput, setCompilerOutput]     = useState('');
   const [compilerRunTrigger, setCompilerRunTrigger] = useState(0);
 
+  useEffect(() => {
+    if (username) {
+      axios.defaults.headers.common['x-user'] = username;
+    }
+  }, [username]);
+
   const fetchChats = async () => {
+    if (!username) return;
     try {
       const res = await axios.get('http://localhost:5000/api/chats');
       setChats(res.data);
@@ -40,11 +50,16 @@ function App() {
     }
   };
 
-  useEffect(() => { fetchChats(); }, []);
+  useEffect(() => { 
+    if (username) fetchChats();
+  }, [username]);
 
   const createNewChat = async () => {
     try {
-      const res  = await fetch('http://localhost:5000/api/chats', { method: 'POST' });
+      const res  = await fetch('http://localhost:5000/api/chats', { 
+        method: 'POST',
+        headers: { 'x-user': username } 
+      });
       const chat = await res.json();
       setChats(prev => [chat, ...prev]);
       setActiveChatId(chat._id);
@@ -55,7 +70,10 @@ function App() {
   };
 
   const deleteChat = async (id) => {
-    await fetch(`http://localhost:5000/api/chats/${id}`, { method: 'DELETE' });
+    await fetch(`http://localhost:5000/api/chats/${id}`, { 
+      method: 'DELETE',
+      headers: { 'x-user': username }
+    });
     setChats(prev => prev.filter(c => c._id !== id));
     if (activeChatId === id) setActiveChatId(null);
   };
@@ -82,6 +100,31 @@ function App() {
       setCompilerRunTrigger(prev => prev + 1);
     }, 50);
   };
+
+  // Pantalla de Login si no hay usuario
+  if (!username) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100vh', background: 'var(--bg-base)', fontFamily: 'var(--font-ui)' }}>
+        <h2>Bienvenido al Tutor de Programación</h2>
+        <form onSubmit={(e) => {
+          e.preventDefault();
+          if (loginInput.trim()) {
+            localStorage.setItem('tutor_username', loginInput.trim());
+            setUsername(loginInput.trim());
+          }
+        }} style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
+          <input 
+            type="text" 
+            placeholder="Ingresa tu nombre de usuario" 
+            value={loginInput}
+            onChange={(e) => setLoginInput(e.target.value)}
+            style={{ padding: '10px', borderRadius: '5px', border: '1px solid #ccc' }}
+          />
+          <button type="submit" style={{ padding: '10px 20px', borderRadius: '5px', background: 'var(--blue)', color: 'white', border: 'none', cursor: 'pointer' }}>Entrar</button>
+        </form>
+      </div>
+    );
+  }
 
   /* ── Loading screen ── */
   if (isInitialLoading) {

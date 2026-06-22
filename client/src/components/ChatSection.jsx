@@ -34,6 +34,7 @@ const ChatSection = ({
   const [attachment, setAttachment]   = useState(null);
   const [lastState, setLastState]     = useState(null);
 
+  const username = localStorage.getItem('tutor_username') || '';
   const messagesEndRef     = useRef(null);
   const abortControllerRef = useRef(null);
   const currentChatRef     = useRef(null);
@@ -64,7 +65,9 @@ const ChatSection = ({
       setLastState(savedState || null);
 
       if (activeChatId) {
-        fetch(`http://localhost:5000/api/chats/${activeChatId}`)
+        fetch(`http://localhost:5000/api/chats/${activeChatId}`, {
+          headers: { 'x-user': username }
+        })
           .then(r => r.json())
           .then(d => setMessages(d.messages || []))
           .catch(console.error);
@@ -132,7 +135,10 @@ const ChatSection = ({
     try {
       const res = await fetch(`http://localhost:5000/api/chats/${activeChatId}/messages`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'x-user': username
+        },
         body: JSON.stringify({
           role: 'user', content: finalContent,
           compilerCode, compilerLanguage, compilerOutput, isCompetitiveMode,
@@ -186,7 +192,10 @@ const ChatSection = ({
     try {
       const res = await fetch(`http://localhost:5000/api/chats/${newChat._id}/messages`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'x-user': username
+        },
         body: JSON.stringify({
           role: 'user', content: finalContent,
           compilerCode, compilerLanguage, compilerOutput, isCompetitiveMode,
