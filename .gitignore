@@ -1,20 +1,20 @@
+# Entornos y variables
 .env
 /tutor-env
-
 .vscode/
+
+# Python
 __pycache__/
 *.pyc
 
+# Node
 /node_modules/
 */node_modules/
 
-/package-lock.json
-/package.json
-*/package-lock.json
-*/package.json/
+# Temporales
+temp/
 
-temp
-
+# Base de datos local
 /server/tutor.db
 /server/tutor.db-shm
 /server/tutor.db-wal
