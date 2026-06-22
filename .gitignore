@@ -3,13 +3,18 @@
 /tutor-env
 .vscode/
 
-# Python
+# Python y Jupyter
 __pycache__/
 *.pyc
+.ipynb_checkpoints/
 
 # Node
-/node_modules/
+node_modules/
 */node_modules/
+*.log
+
+# Frontend (Vite Build)
+/client/dist/
 
 # Temporales
 temp/
@@ -18,3 +23,7 @@ temp/
 /server/tutor.db
 /server/tutor.db-shm
 /server/tutor.db-wal
+
+# Sistema Operativo
+.DS_Store
+Thumbs.db
