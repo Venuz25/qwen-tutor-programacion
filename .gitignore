@@ -14,15 +14,15 @@ node_modules/
 *.log
 
 # Frontend (Vite Build)
-/client/dist/
+/frontend/dist/
 
 # Temporales
 temp/
 
 # Base de datos local
-/server/tutor.db
-/server/tutor.db-shm
-/server/tutor.db-wal
+/backend/tutor.db
+/backend/tutor.db-shm
+/backend/tutor.db-wal
 
 # Sistema Operativo
 .DS_Store
