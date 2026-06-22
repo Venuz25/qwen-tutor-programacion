@@ -25,6 +25,7 @@
   },
   "dependencies": {
     "@tailwindcss/typography": "^0.5.19",
+    "bcrypt": "^6.0.0",
     "remark-gfm": "^4.0.1"
   }
 }

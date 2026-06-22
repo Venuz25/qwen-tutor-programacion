@@ -16,7 +16,11 @@ const HELLO_WORLD = {
 
 function App() {
   const [username, setUsername] = useState(localStorage.getItem('tutor_username') || '');
+  const [isRegistering, setIsRegistering] = useState(false);
   const [loginInput, setLoginInput] = useState('');
+  const [passwordInput, setPasswordInput] = useState('');
+  const [authError, setAuthError] = useState('');
+  const [isAuthLoading, setIsAuthLoading] = useState(false);
 
   const [isCompetitiveMode, setIsCompetitiveMode] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen]         = useState(true);
@@ -49,6 +53,13 @@ function App() {
       setTimeout(() => setIsInitialLoading(false), 900);
     }
   };
+
+  const handleLogout = () => {
+  localStorage.removeItem('tutor_username');
+  setUsername('');
+  setChats([]);
+  setActiveChatId(null);
+};
 
   useEffect(() => { 
     if (username) fetchChats();
@@ -101,27 +112,78 @@ function App() {
     }, 50);
   };
 
-  // Pantalla de Login si no hay usuario
+  const handleAuthSubmit = async (e) => {
+    e.preventDefault();
+    setAuthError('');
+    setIsAuthLoading(true);
+
+    const endpoint = isRegistering ? '/api/register' : '/api/login';
+
+    try {
+      const res = await axios.post(`http://localhost:5000${endpoint}`, {
+        username: loginInput.trim(),
+        password: passwordInput
+      });
+
+      localStorage.setItem('tutor_username', res.data.username);
+      setUsername(res.data.username);
+    } catch (error) {
+      setAuthError(error.response?.data?.error || 'Error de conexión con el servidor');
+    } finally {
+      setIsAuthLoading(false);
+    }
+  };
+
+  // UI de Login/Registro
   if (!username) {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100vh', background: 'var(--bg-base)', fontFamily: 'var(--font-ui)' }}>
-        <h2>Bienvenido al Tutor de Programación</h2>
-        <form onSubmit={(e) => {
-          e.preventDefault();
-          if (loginInput.trim()) {
-            localStorage.setItem('tutor_username', loginInput.trim());
-            setUsername(loginInput.trim());
-          }
-        }} style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
-          <input 
-            type="text" 
-            placeholder="Ingresa tu nombre de usuario" 
-            value={loginInput}
-            onChange={(e) => setLoginInput(e.target.value)}
-            style={{ padding: '10px', borderRadius: '5px', border: '1px solid #ccc' }}
-          />
-          <button type="submit" style={{ padding: '10px 20px', borderRadius: '5px', background: 'var(--blue)', color: 'white', border: 'none', cursor: 'pointer' }}>Entrar</button>
-        </form>
+        <div style={{ background: 'var(--bg-card)', padding: '40px', borderRadius: '12px', border: '1px solid var(--border)', width: '100%', maxWidth: '360px', boxShadow: '0 10px 30px rgba(0,0,0,0.2)' }}>
+          
+          <h2 style={{ textAlign: 'center', marginBottom: '24px', color: 'var(--text-primary)' }}>
+            {isRegistering ? 'Crear Cuenta Nueva' : 'Iniciar Sesión'}
+          </h2>
+
+          <form onSubmit={handleAuthSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+            <input 
+              type="text" 
+              placeholder="Nombre de usuario" 
+              value={loginInput}
+              onChange={(e) => setLoginInput(e.target.value)}
+              required
+              className="input-field"
+              style={{ padding: '12px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--bg-surface)', color: 'var(--text-primary)' }}
+            />
+            <input 
+              type="password" 
+              placeholder="Contraseña" 
+              value={passwordInput}
+              onChange={(e) => setPasswordInput(e.target.value)}
+              required
+              className="input-field"
+              style={{ padding: '12px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--bg-surface)', color: 'var(--text-primary)' }}
+            />
+            
+            {authError && <div style={{ color: '#ef4444', fontSize: '13px', textAlign: 'center', background: 'rgba(239,68,68,0.1)', padding: '8px', borderRadius: '6px' }}>{authError}</div>}
+            
+            <button 
+              type="submit" 
+              disabled={isAuthLoading}
+              style={{ padding: '12px', borderRadius: '8px', background: 'var(--blue)', color: 'white', border: 'none', cursor: 'pointer', fontWeight: 'bold', marginTop: '10px', opacity: isAuthLoading ? 0.7 : 1 }}
+            >
+              {isAuthLoading ? 'Cargando...' : (isRegistering ? 'Registrarse' : 'Entrar')}
+            </button>
+          </form>
+
+          <div style={{ textAlign: 'center', marginTop: '20px' }}>
+            <button 
+              onClick={() => { setIsRegistering(!isRegistering); setAuthError(''); }}
+              style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '14px', textDecoration: 'underline' }}
+            >
+              {isRegistering ? '¿Ya tienes cuenta? Inicia sesión aquí' : '¿No tienes cuenta? Regístrate aquí'}
+            </button>
+          </div>
+        </div>
       </div>
     );
   }
@@ -171,12 +233,18 @@ function App() {
       fontFamily: 'var(--font-ui)',
     }}>
       <Sidebar
-        isOpen={isSidebarOpen}     setIsOpen={setIsSidebarOpen}
-        chats={chats}              setChats={setChats}
-        activeChat={activeChatId}  onSelect={setActiveChatId}
-        onCreate={createNewChat}   onDelete={deleteChat}
+        isOpen={isSidebarOpen} 
+        setIsOpen={setIsSidebarOpen}
+        chats={chats} 
+        setChats={setChats}
+        activeChat={activeChatId} 
+        onSelect={setActiveChatId}
+        onCreate={createNewChat}  
+        onDelete={deleteChat}
         isCompetitiveMode={isCompetitiveMode}
         setIsCompetitiveMode={setIsCompetitiveMode}
+        username={username}
+        onLogout={handleLogout}
       />
 
       <main style={{ display: 'flex', flex: 1, overflow: 'hidden', position: 'relative' }}>

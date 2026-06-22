@@ -1,15 +1,16 @@
 const express  = require('express');
 const path = require('path');
-const http     = require('http');
+const http  = require('http');
 const { Server } = require('socket.io');
-const cors     = require('cors');
+const cors  = require('cors');
+const bcrypt = require('bcrypt');
 require('dotenv').config();
 
 const {
   findAllChats, findChatById, createChat,
   updateChatTitle, deleteChat,
   addMessage, getRecentMessages,
-  findOrCreateUser,
+  createUser, findUserByUsername
 } = require('./models/db');
 
 const { startExecution, sendInput, killProcess } = require('./executor');
@@ -21,10 +22,73 @@ const io     = new Server(server, { cors: { origin: '*' } });
 app.use('/temp', express.static(path.join(__dirname, '..', 'temp')));
 app.use(cors());
 app.use(express.json());
-app.use((req, _res, next) => {
-  const username = req.headers['x-user'] || req.query.user || 'default';
-  req.currentUser = findOrCreateUser(username);
+
+app.use((req, res, next) => {
+  if (req.path === '/api/login' || req.path === '/api/register' || req.path.startsWith('/temp')) {
+    return next();
+  }
+
+  const username = req.headers['x-user'] || req.query.user;
+  const user = findUserByUsername(username);
+
+  if (!user) {
+    return res.status(401).json({ error: 'Acceso denegado. Inicia sesión primero.' });
+  }
+
+  req.currentUser = user;
   next();
+});
+
+app.use((req, res, next) => {
+  if (req.path === '/api/login' || req.path === '/api/register' || req.path.startsWith('/temp')) {
+    return next();
+  }
+
+  const username = req.headers['x-user'] || req.query.user;
+  const user = findUserByUsername(username);
+
+  if (!user) {
+    return res.status(401).json({ error: 'Acceso denegado. Inicia sesión primero.' });
+  }
+
+  req.currentUser = user;
+  next();
+});
+
+app.post('/api/register', async (req, res) => {
+  try {
+    const { username, password } = req.body;
+    if (!username || !password) return res.status(400).json({ error: 'Faltan datos' });
+
+    const existingUser = findUserByUsername(username);
+    if (existingUser) return res.status(400).json({ error: 'El nombre de usuario ya está en uso' });
+
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
+
+    const newUser = createUser(username, hashedPassword);
+    res.json({ message: 'Usuario registrado exitosamente', username: newUser.username });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/api/login', async (req, res) => {
+  try {
+    const { username, password } = req.body;
+    const user = findUserByUsername(username);
+
+    // Si el usuario no existe, lanzamos error genérico por seguridad
+    if (!user) return res.status(401).json({ error: 'Usuario o contraseña incorrectos' });
+
+    // Comparamos la contraseña en texto plano con el hash guardado
+    const validPassword = await bcrypt.compare(password, user.password);
+    if (!validPassword) return res.status(401).json({ error: 'Usuario o contraseña incorrectos' });
+
+    res.json({ message: 'Login exitoso', username: user.username });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
 });
 
 /** GET /api/chats — lista de chats del usuario */

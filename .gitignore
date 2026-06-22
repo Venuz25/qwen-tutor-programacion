@@ -6,12 +6,12 @@ __pycache__/
 *.pyc
 
 /node_modules/
-/server/node_modules/
-/client/node_modules/
+*/node_modules/
 
-/ia-model/models/*
+*/package-lock.json
+*/package.json
 
-temp/*
+temp
 
 /server/tutor.db
 /server/tutor.db-shm

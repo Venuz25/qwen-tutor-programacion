@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { MessageSquare, Trash2, Edit2, Check, X, PanelLeftClose, PanelLeftOpen, Plus, Trophy, GripVertical } from 'lucide-react';
+import { MessageSquare, Trash2, Edit2, Check, X, PanelLeftClose, PanelLeftOpen, Plus, Trophy, GripVertical, User, LogOut } from 'lucide-react';
 
 const STATE_BADGES = {
   DEBUGGING:        { label: 'Debug',      cls: 'badge-red' },
@@ -14,6 +14,7 @@ const Sidebar = ({
   chats, setChats,
   activeChat, onSelect, onCreate, onDelete,
   isCompetitiveMode, setIsCompetitiveMode,
+  username, onLogout
 }) => {
   const [editingId, setEditingId]   = useState(null);
   const [tempTitle, setTempTitle]   = useState('');
@@ -271,6 +272,58 @@ const Sidebar = ({
           </div>
         )}
       </div>
+
+      <div style={{
+        marginTop: 'auto', // Empuja la sección al fondo
+        borderTop: '1px solid var(--border)',
+        padding: isOpen ? '16px 20px' : '16px 0',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: isOpen ? 'space-between' : 'center',
+        background: 'var(--bg-surface)'
+      }}>
+        {isOpen ? (
+          <>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', overflow: 'hidden' }}>
+              <div style={{
+                width: '32px', height: '32px', borderRadius: '50%', background: 'var(--blue)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', flexShrink: 0
+              }}>
+                <User size={16} />
+              </div>
+              <span style={{ color: 'var(--text-primary)', fontSize: '14px', fontWeight: '500', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
+                {username}
+              </span>
+            </div>
+            
+            <button 
+              onClick={onLogout}
+              title="Cerrar sesión"
+              style={{
+                background: 'transparent', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', padding: '6px', borderRadius: '6px', display: 'flex', transition: 'all 0.2s'
+              }}
+              onMouseEnter={e => { e.currentTarget.style.color = '#ef4444'; e.currentTarget.style.background = 'rgba(239, 68, 68, 0.1)'; }}
+              onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-secondary)'; e.currentTarget.style.background = 'transparent'; }}
+            >
+              <LogOut size={18} />
+            </button>
+          </>
+        ) : (
+          /* Vista minificada del Sidebar (cuando está cerrado) */
+          <button 
+            onClick={onLogout}
+            title="Cerrar sesión"
+            style={{
+              background: 'transparent', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', display: 'flex', padding: '8px', transition: 'all 0.2s', borderRadius: '8px'
+            }}
+            onMouseEnter={e => { e.currentTarget.style.color = '#ef4444'; e.currentTarget.style.background = 'rgba(239, 68, 68, 0.1)'; }}
+            onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-secondary)'; e.currentTarget.style.background = 'transparent'; }}
+          >
+            <LogOut size={20} />
+          </button>
+        )}
+      </div>
+      
     </aside>
   );
 };
