@@ -12,3 +12,7 @@ __pycache__/
 /ia-model/models/*
 
 temp/*
+
+/server/tutor.db
+/server/tutor.db-shm
+/server/tutor.db-wal
