@@ -1,7 +1,7 @@
-import SortingRenderer from './renderers/SortingRenderer';
 import { SORTING_ALGORITHMS } from './algorithms/sorting';
-import StructureRenderer from './renderers/StructureRenderer';
 import { STRUCTURE_ALGORITHMS } from './algorithms/structures';
+import SortingRenderer from './renderers/SortingRenderer';
+import StructureRenderer from './renderers/StructureRenderer';
 
 export const ALGORITHM_REGISTRY = {
   ...SORTING_ALGORITHMS,
@@ -10,7 +10,7 @@ export const ALGORITHM_REGISTRY = {
 
 const CATEGORY_RENDERERS = {
   sorting: SortingRenderer,
-  structure: StructureRenderer,
+  structures: StructureRenderer,
 };
 
 export function parseVizPayload(messageContent) {

@@ -37,11 +37,16 @@ const Sidebar = ({
 
   const saveTitle = async (id) => {
     if (!tempTitle.trim()) return setEditingId(null);
+    
     await fetch(`http://localhost:5000/api/chats/${id}`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 
+        'Content-Type': 'application/json',
+        'x-user': username
+      },
       body: JSON.stringify({ title: tempTitle }),
     });
+    
     setChats(chats.map(c => c._id === id ? { ...c, title: tempTitle } : c));
     setEditingId(null);
   };
