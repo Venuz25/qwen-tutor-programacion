@@ -5,6 +5,8 @@ import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import remarkGfm from 'remark-gfm';
 import { Plus, FileText, Code, X, Paperclip, StopCircle, Send, Zap } from 'lucide-react';
 import { io } from 'socket.io-client';
+import VizCard from '../viz/VizCard';
+import { parseVizPayload } from '../viz/VizEngine';
 
 const BADGE_MAP = {
   TUTOR_BASE:  { label: 'Modo Tutor',       cls: 'badge-blue' },
@@ -530,8 +532,16 @@ const AttachMenu = ({ isOpen, setIsOpen, menuRef, onFile, onCompiler }) => (
 /* ─── Single message row ─── */
 const MessageRow = ({ msg, onRunCode }) => {
   const isUser = msg.role === 'user';
-
   let cleanContent = (msg.content || '').trim();
+  let vizPayload = null;
+
+  if (!isUser) {
+    vizPayload = parseVizPayload(cleanContent);
+    if (vizPayload) {
+      cleanContent = cleanContent.replace(/```viz\n([\s\S]*?)\n```/, '').trim();
+    }
+  }
+
   if (cleanContent.toLowerCase().startsWith('```markdown') && cleanContent.endsWith('```')) {
     cleanContent = cleanContent.substring(11, cleanContent.length - 3).trim();
   }
@@ -651,6 +661,12 @@ const MessageRow = ({ msg, onRunCode }) => {
         >
           {cleanContent}
         </ReactMarkdown>
+
+        {vizPayload && (
+          <div style={{ marginTop: '12px' }}>
+            <VizCard payload={vizPayload} />
+          </div>
+        )}
       </div>
     </div>
   );

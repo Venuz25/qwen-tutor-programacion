@@ -58,7 +58,11 @@ function findChatById(chatId) {
 function createChat(userId) {
   const insert = db.prepare(`INSERT INTO chats (user_id, title) VALUES (?, 'Nuevo Chat')`);
   const { lastInsertRowid } = insert.run(userId);
-  db.prepare(`INSERT INTO messages (chat_id, role, content) VALUES (?, 'assistant', '¡Hola! Soy tu tutor de programación. ¿En qué código estás trabajando hoy?')`).run(lastInsertRowid);
+
+  const welcomeMessage = `¡Hola! Soy tu asistente de programación. Puedes escribirme preguntas sobre código, algoritmos, estructuras de datos, depuración y más. Estoy aquí para ayudarte a aprender y resolver problemas de programación. ¡Comencemos!`;
+
+  db.prepare(`INSERT INTO messages (chat_id, role, content) VALUES (?, 'assistant', ?)`).run(lastInsertRowid, welcomeMessage);
+
   return findChatById(lastInsertRowid);
 }
 
