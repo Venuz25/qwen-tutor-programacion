@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
-import { PanelRightOpen } from 'lucide-react';
+import { PanelRightOpen, HelpCircle } from 'lucide-react';
 import Sidebar from './components/Sidebar';
 import ChatSection from './components/ChatSection';
 import CodeCompiler from './components/CodeCompiler';
+import TutorialModal from './components/TutorialModal';
 
 const HELLO_WORLD = {
   python:     'print("Hola mundo")',
@@ -25,6 +26,7 @@ function App() {
   const [isCompetitiveMode, setIsCompetitiveMode] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen]         = useState(true);
   const [isCompilerOpen, setIsCompilerOpen]       = useState(false);
+  const [isTutorialOpen, setIsTutorialOpen]       = useState(false);
 
   const [chats, setChats]               = useState([]);
   const [activeChatId, setActiveChatId] = useState(null);
@@ -300,6 +302,33 @@ function App() {
             />
           )}
         </div>
+
+        {/* --- NUEVO: BOTÓN DE TUTORIAL FLOTANTE --- */}
+        <button
+          onClick={() => setIsTutorialOpen(true)}
+          data-tip="¿Cómo funciona?"
+          style={{
+            position: 'absolute', bottom: 20, right: isCompilerOpen ? 'calc(38% + 20px)' : 20, // Se mueve si abres el compilador
+            zIndex: 40,
+            background: 'var(--blue)', color: 'white',
+            border: 'none', borderRadius: '50%',
+            width: '48px', height: '48px',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            cursor: 'pointer',
+            boxShadow: '0 4px 14px rgba(59, 130, 246, 0.4)',
+            transition: 'all 0.3s cubic-bezier(.4,0,.2,1)',
+          }}
+          onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.1)'}
+          onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
+        >
+          <HelpCircle size={24} />
+        </button>
+
+        {/* --- NUEVO: MODAL DE TUTORIAL --- */}
+        {isTutorialOpen && (
+          <TutorialModal onClose={() => setIsTutorialOpen(false)} />
+        )}
+
       </main>
     </div>
   );
