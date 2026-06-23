@@ -1,12 +1,16 @@
 import SortingRenderer from './renderers/SortingRenderer';
 import { SORTING_ALGORITHMS } from './algorithms/sorting';
+import StructureRenderer from './renderers/StructureRenderer';
+import { STRUCTURE_ALGORITHMS } from './algorithms/structures';
 
 export const ALGORITHM_REGISTRY = {
   ...SORTING_ALGORITHMS,
+  ...STRUCTURE_ALGORITHMS,
 };
 
 const CATEGORY_RENDERERS = {
   sorting: SortingRenderer,
+  structure: StructureRenderer,
 };
 
 export function parseVizPayload(messageContent) {
