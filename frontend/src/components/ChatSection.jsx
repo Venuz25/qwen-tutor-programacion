@@ -362,7 +362,7 @@ const ChatSection = ({
 
       {/* ── Messages ── */}
       <div
-        className="custom-scrollbar"
+        id="tour-chat-area" className="custom-scrollbar"
         style={{ flex: 1, overflowY: 'auto', padding: '24px 16px', display: 'flex', flexDirection: 'column', gap: 16 }}
       >
         {messages.map((msg, i) => (
@@ -427,7 +427,7 @@ const ChatSection = ({
             </div>
           )}
 
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <div id="tour-chat-input" style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
             <AttachMenu isOpen={isMenuOpen} setIsOpen={setIsMenuOpen} menuRef={menuRef} onFile={handleFileUpload} onCompiler={handleAttachCompiler} />
             <textarea
               value={input}

@@ -188,6 +188,20 @@ app.post('/api/chats/:id/messages', async (req, res) => {
   }
 });
 
+app.post('/api/chats/:id/messages', (req, res) => {
+  try {
+    const chatId = req.params.id;
+    const { role, content } = req.body;
+    
+    addMessage(chatId, role, content);
+    
+    res.json({ success: true });
+  } catch (error) {
+    console.error("Error inyectando mensaje para el Tour:", error);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
 // ────────────────────────────────────────────────────────────────
 //  SOCKET.IO — Compilador interactivo
 // ────────────────────────────────────────────────────────────────

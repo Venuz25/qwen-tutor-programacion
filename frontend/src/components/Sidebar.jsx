@@ -53,6 +53,7 @@ const Sidebar = ({
 
   return (
     <aside
+      id="tour-sidebar"
       style={{
         width: isOpen ? '240px' : '60px',
         transition: 'width 0.25s cubic-bezier(.4,0,.2,1)',
@@ -125,6 +126,7 @@ const Sidebar = ({
         </button>
 
         <button
+          id="tour-judge"
           onClick={() => setIsCompetitiveMode(!isCompetitiveMode)}
           data-tip={!isOpen ? (isCompetitiveMode ? 'Modo juez: ON' : 'Modo juez: OFF') : undefined}
           style={{

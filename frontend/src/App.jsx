@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { PanelRightOpen, HelpCircle } from 'lucide-react';
+
 import Sidebar from './components/Sidebar';
 import ChatSection from './components/ChatSection';
 import CodeCompiler from './components/CodeCompiler';
-import TutorialModal from './components/TutorialModal';
+import GuidedTour from './components/GuidedTour';
 
 const HELLO_WORLD = {
   python:     'print("Hola mundo")',
@@ -36,6 +37,9 @@ function App() {
   const [compilerCode, setCompilerCode]         = useState(HELLO_WORLD.python);
   const [compilerOutput, setCompilerOutput]     = useState('');
   const [compilerRunTrigger, setCompilerRunTrigger] = useState(0);
+
+  const [tourChatIds, setTourChatIds] = useState({ study: null, anim: null, judge: null });
+  const [isTourLoading, setIsTourLoading] = useState(false);
 
   useEffect(() => {
     if (username) {
@@ -227,6 +231,74 @@ function App() {
     );
   }
 
+  const handleStartTour = async () => {
+    setIsTourLoading(true);
+    try {
+      // Función auxiliar para inyectar los chats directo al backend
+      const createMockChat = async (title, userMsg, botMsg) => {
+        // 1. Creamos el chat vacío
+        const res = await fetch('http://localhost:5000/api/chats', {
+          method: 'POST', headers: { 'x-user': username }
+        });
+        const chat = await res.json();
+        const chatId = chat.id || chat._id;
+        
+        // 2. Le ponemos el título de demostración usando tu ruta PUT
+        await fetch(`http://localhost:5000/api/chats/${chatId}`, {
+          method: 'PUT', headers: { 'Content-Type': 'application/json', 'x-user': username },
+          body: JSON.stringify({ title })
+        });
+
+        // 3. Inyectamos los mensajes simulados en la ruta que acabamos de crear en el backend
+        await fetch(`http://localhost:5000/api/chats/${chatId}/messages`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json', 'x-user': username },
+          body: JSON.stringify({ role: 'user', content: userMsg })
+        });
+        
+        await fetch(`http://localhost:5000/api/chats/${chatId}/messages`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json', 'x-user': username },
+          body: JSON.stringify({ role: 'assistant', content: botMsg })
+        });
+        return chatId;
+      };
+
+      // 1. Chat de Plan de Estudios
+      const studyId = await createMockChat(
+        '📚 Tour: Plan de Estudios',
+        'Quiero aprender Estructuras de Datos, ¿por dónde empiezo?',
+        '¡Excelente iniciativa! Para dominar las estructuras de datos, vamos a deducirlo juntos en lugar de darte un temario aburrido.\n\nImagina que tienes que guardar una lista de tareas del día. ¿Dónde las guardarías? ¿En un espacio de memoria de tamaño fijo, o en uno que pueda crecer dinámicamente?\n\n(Piensa en Arreglos vs. Listas Enlazadas para tu respuesta).'
+      );
+
+      // 2. Chat de Animación (Inyectando un JSON válido para D3.js)
+      const animId = await createMockChat(
+        '💡 Tour: Animaciones',
+        'Visualiza cómo funciona el algoritmo Selection Sort.',
+        '¡Claro! Aquí tienes la representación visual paso a paso:\n\n```viz\n{\n  "algorithm": "selection_sort",\n  "category": "sorting",\n  "title": "Selection Sort (Demo)",\n  "params": { "array": [45, 12, 88, 23, 67, 34] }\n}\n```\n\nPuedes usar los controles inferiores de la tarjeta para pausar, reiniciar o moverte paso a paso por la animación.'
+      );
+
+      // 3. Chat de Modo Juez
+      const judgeId = await createMockChat(
+        '🏆 Tour: Modo Juez',
+        'Envié mi código para el problema "Two Sum" pero falla por tiempo.',
+        '[Modo Juez Activado] 🏆\n\n**Veredicto:** Time Limit Exceeded (TLE) ❌\n\n**Análisis:**\nTienes una complejidad actual de O(n²) porque usas dos bucles anidados. Para este problema se espera una solución O(n).\n\n**Pista Socrática:**\n¿Qué estructura de datos te permite buscar si un elemento ya existe en tiempo constante O(1)? Pista: en Python se llama diccionario (Hash Map).'
+      );
+
+      // Refrescamos la lista de chats lateral para que aparezcan instantáneamente
+      const res = await fetch('http://localhost:5000/api/chats', { headers: { 'x-user': username } });
+      const updatedChats = await res.json();
+      setChats(updatedChats);
+
+      // Guardamos los IDs generados y abrimos el Tour
+      setTourChatIds({ study: studyId, anim: animId, judge: judgeId });
+      setIsTutorialOpen(true);
+    } catch (error) {
+      console.error("Error creando chats del tour", error);
+      alert("Hubo un error al generar el tour. Revisa la consola.");
+    } finally {
+      setIsTourLoading(false);
+    }
+  };
+
   return (
     <div style={{
       display: 'flex', height: '100vh', width: '100%',
@@ -281,7 +353,7 @@ function App() {
             onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-hover)'; e.currentTarget.style.borderColor = 'var(--blue)'; }}
             onMouseLeave={e => { e.currentTarget.style.background = 'var(--bg-card)'; e.currentTarget.style.borderColor = 'var(--border-md)'; }}
           >
-            <PanelRightOpen size={18} />
+            <PanelRightOpen id="tour-compiler-btn" size={18} />
           </button>
         )}
 
@@ -294,6 +366,7 @@ function App() {
         }}>
           {isCompilerOpen && (
             <CodeCompiler
+              id="tour-compiler-panel"
               onClose={() => setIsCompilerOpen(false)}
               code={compilerCode}             setCode={setCompilerCode}
               language={compilerLanguage}     onLanguageChange={handleCompilerLanguageChange}
@@ -305,8 +378,9 @@ function App() {
 
         {/* --- NUEVO: BOTÓN DE TUTORIAL FLOTANTE --- */}
         <button
-          onClick={() => setIsTutorialOpen(true)}
-          data-tip="¿Cómo funciona?"
+          onClick={handleStartTour}
+          disabled={isTourLoading}
+          data-tip="Iniciar Tour Interactivo"
           style={{
             position: 'absolute', bottom: 20, right: isCompilerOpen ? 'calc(38% + 20px)' : 20, // Se mueve si abres el compilador
             zIndex: 40,
@@ -321,12 +395,19 @@ function App() {
           onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.1)'}
           onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
         >
-          <HelpCircle size={24} />
+                {isTourLoading ? <span style={{fontSize: '12px', fontWeight: 'bold'}}>...</span> : <HelpCircle size={24} />}
         </button>
 
-        {/* --- NUEVO: MODAL DE TUTORIAL --- */}
+        {/* Componente del Tour Controlador */}
         {isTutorialOpen && (
-          <TutorialModal onClose={() => setIsTutorialOpen(false)} />
+          <GuidedTour 
+            tourChatIds={tourChatIds}
+            onClose={() => setIsTutorialOpen(false)}
+            setActiveChatId={setActiveChatId}
+            setCompilerOpen={setIsCompilerOpen}    
+            setCompilerCode={setCompilerCode}      
+            setCompilerLanguage={setCompilerLanguage} 
+          />
         )}
 
       </main>

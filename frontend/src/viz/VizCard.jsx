@@ -12,7 +12,7 @@ const VizCard = ({ payload }) => {
 
   return (
     <>
-      <div style={{
+      <div id="tour-viz-card" style={{
         display: 'inline-flex', alignItems: 'center', gap: 10,
         background: 'rgba(59,130,246,0.08)',
         border: '1px solid rgba(59,130,246,0.25)',
