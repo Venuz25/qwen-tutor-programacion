@@ -1,84 +1,77 @@
 const { spawn } = require('child_process');
-const fs        = require('fs');
-const path      = require('path');
+const fs = require('fs');
+const path = require('path');
 
 const TEMP_DIR = path.join(__dirname, '..', 'temp');
-if (!fs.existsSync(TEMP_DIR)) fs.mkdirSync(TEMP_DIR, { recursive: true });
+fs.mkdirSync(TEMP_DIR, { recursive: true });
 
 const LANG_CONFIG = {
   python: {
     ext: 'py',
-    timeout: 30_000,
-    run: (file) => ({ cmd: 'python3', args: [file] }),
+    timeout: 30000,
+    run: (file) => ({ cmd: 'python3', args: [file] })
   },
   javascript: {
     ext: 'js',
-    timeout: 30_000,
-    run: (file) => ({ cmd: 'node', args: [file] }),
+    timeout: 30000,
+    run: (file) => ({ cmd: 'node', args: [file] })
   },
   php: {
     ext: 'php',
-    timeout: 30_000,
-    run: (file) => ({ cmd: 'php', args: [file] }),
+    timeout: 30000,
+    run: (file) => ({ cmd: 'php', args: [file] })
   },
   c: {
     ext: 'c',
-    timeout: 30_000,
+    timeout: 30000,
     compile: (src, out) => ({ cmd: 'gcc', args: [src, '-o', out, '-lm'] }),
-    run: (_src, out) => ({ cmd: out, args: [] }),
+    run: (_, out) => ({ cmd: out, args: [] })
   },
   cpp: {
     ext: 'cpp',
-    timeout: 30_000,
+    timeout: 30000,
     compile: (src, out) => ({ cmd: 'g++', args: [src, '-o', out, '-std=c++17'] }),
-    run: (_src, out) => ({ cmd: out, args: [] }),
+    run: (_, out) => ({ cmd: out, args: [] })
   },
   java: {
     ext: 'java',
-    timeout: 45_000,          // Java arranca más lento
-    // Java obliga a que el archivo se llame igual que la clase pública
+    timeout: 45000,
     compile: (src) => ({ cmd: 'javac', args: [src] }),
-    run: (_src, _out, dir) => ({ cmd: 'java', args: ['-cp', dir, 'Main'] }),
-  },
+    run: (_, __, dir) => ({ cmd: 'java', args: ['-cp', dir, 'Main'] })
+  }
 };
 
-// ── Limpieza de archivos temporales ──────────────────────────────
+const activeProcesses = new Map();
+
+// Elimina de forma segura y recursiva un directorio temporal
 function cleanupDir(dirPath) {
   try {
-    if (fs.existsSync(dirPath)) {
-      fs.rmSync(dirPath, { recursive: true, force: true });
-    }
+    fs.rmSync(dirPath, { recursive: true, force: true });
   } catch (err) {
     console.error(`[Aviso] No se pudo limpiar la carpeta temporal: ${dirPath}`, err);
   }
 }
 
-// ── Compilar (solo lenguajes compilados) ─────────────────────────
+// Ejecuta de forma asíncrona el comando de compilación para lenguajes como C, C++ o Java
 function compileAsync(cmd, args, cwd) {
   return new Promise((resolve, reject) => {
     const proc = spawn(cmd, args, { cwd });
     let stderr = '';
+    
     proc.stderr.on('data', d => (stderr += d.toString()));
-    proc.on('close', code => {
-      if (code !== 0) reject(new Error(stderr || 'Error de compilación'));
-      else resolve();
-    });
-    proc.on('error', err => reject(new Error(`No se encontró '${cmd}'. ¿Está instalado?`)));
+    proc.on('close', code => code !== 0 ? reject(new Error(stderr || 'Error de compilación')) : resolve());
+    proc.on('error', () => reject(new Error(`No se encontró '${cmd}'. ¿Está instalado?`)));
   });
 }
 
-// ── Registro de procesos activos ───────────
-const activeProcesses = new Map();
-
+// Inicia el proceso de compilación y ejecución de un código, gestionando el ciclo de vida y los eventos del socket
 async function startExecution(socketId, socket, code, language) {
   const config = LANG_CONFIG[language];
   if (!config) {
-    socket.emit('terminal_error', `Lenguaje '${language}' no soportado.\n`);
-    return;
+    return socket.emit('terminal_error', `Lenguaje '${language}' no soportado.\n`);
   }
 
-  const ts = Date.now();
-  const execDir = path.join(TEMP_DIR, `exec_${ts}_${socketId}`);
+  const execDir = path.join(TEMP_DIR, `exec_${Date.now()}_${socketId}`);
   fs.mkdirSync(execDir, { recursive: true });
 
   const srcName = language === 'java' ? 'Main.java' : `script.${config.ext}`;
@@ -103,66 +96,54 @@ async function startExecution(socketId, socket, code, language) {
     } catch (err) {
       socket.emit('terminal_error', `\n[Error de compilación]\n${err.message}\n`);
       socket.emit('execution_finished', '');
-      cleanupDir(execDir);
-      return;
+      return cleanupDir(execDir);
     }
   }
 
   const { cmd, args } = config.run(srcPath, outPath, execDir);
-
   let proc;
+
   try {
     proc = spawn(cmd, args, { cwd: execDir });
   } catch (err) {
     socket.emit('terminal_error', `No se pudo iniciar '${cmd}'. ¿Está instalado?\n`);
     socket.emit('execution_finished', '');
-    cleanupDir(execDir);
-    return;
+    return cleanupDir(execDir);
   }
 
   activeProcesses.set(socketId, { proc, dir: execDir });
 
-  const tle = setTimeout(() => {
+  const timeoutId = setTimeout(() => {
     if (activeProcesses.has(socketId)) {
-      socket.emit('terminal_error',
-        `\n⏱ [TLE] El programa superó ${config.timeout / 1000}s.\nRevisa si hay un bucle infinito.\n`
-      );
+      socket.emit('terminal_error', `\n⏱ [TLE] El programa superó ${config.timeout / 1000}s.\nRevisa si hay un bucle infinito.\n`);
       proc.kill('SIGKILL');
     }
   }, config.timeout);
 
   proc.stdout.on('data', d => socket.emit('terminal_output', d.toString()));
-  proc.stderr.on('data', d => socket.emit('terminal_error',  d.toString()));
+  proc.stderr.on('data', d => socket.emit('terminal_error', d.toString()));
 
-  proc.on('close', async (code) => {
-    const framesPath = path.join(execDir, 'frames');
-    const pyGifPath = path.join(framesPath, 'animation.gif');
+  proc.on('close', code => {
+    const pyGifPath = path.join(execDir, 'frames', 'animation.gif');
     
     if (fs.existsSync(pyGifPath)) {
-        try {
-            const finalGifName = `anim_${Date.now()}_${socketId}.gif`;
-            const finalGifPath = path.join(TEMP_DIR, finalGifName);
-            
-            fs.renameSync(pyGifPath, finalGifPath);
-            socket.emit('animation_ready', `/temp/${finalGifName}`);
-        } catch (e) { 
-            console.error("Error rescatando GIF:", e); 
-        }
+      try {
+        const finalGifName = `anim_${Date.now()}_${socketId}.gif`;
+        fs.renameSync(pyGifPath, path.join(TEMP_DIR, finalGifName));
+        socket.emit('animation_ready', `/temp/${finalGifName}`);
+      } catch (e) {
+        console.error("Error rescatando GIF:", e);
+      }
     }
 
-    clearTimeout(tle);
+    clearTimeout(timeoutId);
     activeProcesses.delete(socketId);
-
-    const msg = code === 0
-      ? `\n[✓ Programa finalizado con código ${code}]\n`
-      : `\n[✗ Programa finalizado con código ${code}]\n`;
-    socket.emit('execution_finished', msg);
-
+    socket.emit('execution_finished', `\n[${code === 0 ? '✓' : '✗'} Programa finalizado con código ${code}]\n`);
     cleanupDir(execDir);
   });
 
   proc.on('error', err => {
-    clearTimeout(tle);
+    clearTimeout(timeoutId);
     activeProcesses.delete(socketId);
     socket.emit('terminal_error', `\n[Error al ejecutar]: ${err.message}\n`);
     socket.emit('execution_finished', '');
@@ -170,7 +151,7 @@ async function startExecution(socketId, socket, code, language) {
   });
 }
 
-/** Mata el proceso activo del socket y limpia su carpeta */
+// Detiene de manera forzada el proceso activo asociado a un socket y elimina sus archivos
 function killProcess(socketId) {
   const session = activeProcesses.get(socketId);
   if (session) {
@@ -180,10 +161,12 @@ function killProcess(socketId) {
   }
 }
 
-/** Envía input al proceso activo del socket */
+// Envía una cadena de texto como entrada estándar a un proceso en ejecución
 function sendInput(socketId, input) {
-  const proc = activeProcesses.get(socketId);
-  if (proc) proc.stdin.write(input + '\n');
+  const session = activeProcesses.get(socketId);
+  if (session && session.proc) {
+    session.proc.stdin.write(`${input}\n`);
+  }
 }
 
 module.exports = { startExecution, sendInput, killProcess };

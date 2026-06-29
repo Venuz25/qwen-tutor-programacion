@@ -2,11 +2,11 @@ import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { X, ChevronRight, ChevronLeft, Bot, Sidebar, Trophy, Code2, MessageSquareHeart, BarChart2 } from 'lucide-react';
 
+// Gestiona el renderizado y la lógica de navegación del tour guiado interactivo
 const GuidedTour = ({ tourChatIds, onClose, setActiveChatId, setCompilerOpen, setCompilerCode, setCompilerLanguage }) => {
   const [currentStep, setCurrentStep] = useState(0);
   const [targetRect, setTargetRect] = useState(null);
 
-  // Configuración Maestra de Pasos y Acciones
   const steps = [
     {
       target: null,
@@ -14,7 +14,7 @@ const GuidedTour = ({ tourChatIds, onClose, setActiveChatId, setCompilerOpen, se
       title: "Bienvenido al Tour Guiado",
       description: "TutorByte no es un simple chat, es un entorno de desarrollo integrado con un tutor socrático.\n\nEn este recorrido hemos creado 3 chats de demostración para ti. Deja que te muestre cómo sacarles el máximo provecho.",
       position: { top: '50%', left: '50%', transform: 'translate(-50%, -50%)' },
-      action: () => setCompilerOpen(false) // Aseguramos empezar limpio
+      action: () => setCompilerOpen(false)
     },
     {
       target: '#tour-sidebar',
@@ -30,7 +30,7 @@ const GuidedTour = ({ tourChatIds, onClose, setActiveChatId, setCompilerOpen, se
       title: "2. Método Socrático",
       description: "Fíjate en esta conversación. El tutor nunca te dará la respuesta servida en bandeja de plata.\n\nAnaliza tu pregunta y te responde con una analogía o una contrapregunta para que tú mismo deduzcas la solución (ej. Arreglos vs Listas Enlazadas).",
       position: { top: '100px', left: '50%', transform: 'translateX(-50%)' },
-      action: () => setActiveChatId(tourChatIds.study) // Fuerza a abrir el Chat 3
+      action: () => setActiveChatId(tourChatIds.study)
     },
     {
       target: '#tour-viz-card',
@@ -38,7 +38,7 @@ const GuidedTour = ({ tourChatIds, onClose, setActiveChatId, setCompilerOpen, se
       title: "3. Animaciones Interactivas",
       description: "¡Esta es la magia del Frontend!\n\nEl LLM generó un bloque de datos matemáticos y nuestro motor D3.js lo renderizó.\n\n👉 ¡Adelante, interactúa con la tarjeta de abajo! Haz clic en 'Reproducir', adelanta los pasos o cambia la velocidad.",
       position: { top: '80px', left: '50%', transform: 'translateX(-50%)' },
-      action: () => setActiveChatId(tourChatIds.anim) // Cambia al Chat 1
+      action: () => setActiveChatId(tourChatIds.anim)
     },
     {
       target: '#tour-chat-area',
@@ -46,18 +46,18 @@ const GuidedTour = ({ tourChatIds, onClose, setActiveChatId, setCompilerOpen, se
       title: "4. Modo Juez",
       description: "Si haces clic en el trofeo (🏆) del menú, el LLM se volverá un juez despiadado.\n\nMira este ejemplo: Detectó que el usuario envió un código con dos bucles anidados y lo penalizó con un TLE (Time Limit Exceeded) exigiéndole una solución O(n).",
       position: { top: '100px', left: '50%', transform: 'translateX(-50%)' },
-      action: () => setActiveChatId(tourChatIds.judge) // Cambia al Chat 2
+      action: () => setActiveChatId(tourChatIds.judge)
     },
     {
       target: '#tour-compiler-panel',
       icon: <Code2 size={32} color="#8b5cf6" />,
       title: "5. Sandbox Aislado",
-      description: "A tu derecha hemos abierto el Compilador Integrado y preparado un fragmento en Python.\n\n👉 Haz clic en 'Ejecutar' (Run) para probarlo.\n👉 Luego prueba el botón inferior 'Enviar a IA' para inyectar este código directamente en la conversación.",
+      description: "A tu derecha hemos abierto el Compilador Integrado y preparado un fragmento en Python.\n\n👉 Haz clic en 'Ejecutar' (Run) para probarlo.\n👉 Prueba el botón 'Adjuntar Compilador' para inyectar este código directamente en la conversación.",
       position: { top: '100px', right: '40%' },
       action: () => {
         setCompilerOpen(true);
         setCompilerLanguage('python');
-        setCompilerCode('def saludo():\n    print("¡El compilador funciona perfectamente!")\n    \n    # TODO: Intenta causar un error de sintaxis y\n    # usa el botón Enviar a IA para pedir ayuda.\n\nsaludo()');
+        setCompilerCode('def saludo():\n    print("¡El compilador funciona perfectamente!")\n    \n    # TODO: Intenta causar un error de sintaxis y\n    # usa el botón Adjuntar Compilador para pedir ayuda.\n\nsaludo()');
       }
     },
     {
@@ -74,45 +74,41 @@ const GuidedTour = ({ tourChatIds, onClose, setActiveChatId, setCompilerOpen, se
 
   const step = steps[currentStep];
 
-  // Ejecutor de acciones y rastreador de coordenadas (Spotlight)
   useEffect(() => {
     if (step.action) step.action();
 
+    // Calcula y actualiza las coordenadas del elemento objetivo para el efecto de foco visual
     const updatePosition = () => {
-      if (step.target) {
-        // Un pequeño delay garantiza que si la acción abrió un panel o renderizó D3, 
-        // el DOM ya esté actualizado antes de calcular la luz.
-        setTimeout(() => {
-          const el = document.querySelector(step.target);
-          if (el) {
-            const rect = el.getBoundingClientRect();
-            setTargetRect({ top: rect.top, left: rect.left, width: rect.width, height: rect.height });
-            el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
-          }
-        }, 150);
-      } else {
+      if (!step.target) {
         setTargetRect(null);
+        return;
       }
+
+      setTimeout(() => {
+        const el = document.querySelector(step.target);
+        if (el) {
+          const rect = el.getBoundingClientRect();
+          setTargetRect({ top: rect.top, left: rect.left, width: rect.width, height: rect.height });
+          el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
+        }
+      }, 150);
     };
 
     updatePosition();
-    // Reevaluamos constantemente por si la tarjeta D3 crece o el usuario redimensiona la ventana
     const interval = setInterval(updatePosition, 300);
+    
     return () => clearInterval(interval);
   }, [currentStep, step.target]);
 
   const overlayContent = (
     <div style={{ position: 'fixed', inset: 0, zIndex: 99999, pointerEvents: 'none' }}>
       
-      {/* 1. EL FOCO DE LUZ (Efecto Joyride Inverso) */}
       {targetRect ? (
         <div style={{
           position: 'absolute',
           top: targetRect.top - 12, left: targetRect.left - 12,
           width: targetRect.width + 24, height: targetRect.height + 24,
           borderRadius: '16px',
-          // El truco maestro: Una sombra masiva oscura que oscurece toda la pantalla 
-          // MENOS el cuadro central, dejando pasar los clics hacia el elemento iluminado.
           boxShadow: '0 0 0 9999px rgba(0,0,0,0.85)',
           transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
           pointerEvents: 'none'
@@ -121,7 +117,6 @@ const GuidedTour = ({ tourChatIds, onClose, setActiveChatId, setCompilerOpen, se
         <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.85)', transition: 'background 0.4s' }} />
       )}
 
-      {/* 2. LA TARJETA DEL TOUR */}
       <div style={{
         position: 'absolute', ...step.position, width: '400px',
         background: 'var(--bg-surface)', borderRadius: '16px', padding: '24px',
@@ -129,7 +124,7 @@ const GuidedTour = ({ tourChatIds, onClose, setActiveChatId, setCompilerOpen, se
         boxShadow: '0 25px 50px -12px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.05)',
         transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
         display: 'flex', flexDirection: 'column', gap: '16px',
-        pointerEvents: 'auto' // Reactiva clics solo en la tarjeta de controles
+        pointerEvents: 'auto'
       }}>
         
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
@@ -158,7 +153,6 @@ const GuidedTour = ({ tourChatIds, onClose, setActiveChatId, setCompilerOpen, se
           </a>
         )}
 
-        {/* Controles */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '12px' }}>
           <span style={{ fontSize: '13px', color: 'var(--text-muted)', fontWeight: 'bold' }}>
             {currentStep + 1} de {steps.length}
